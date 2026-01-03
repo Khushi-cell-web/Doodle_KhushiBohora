@@ -1,0 +1,234 @@
+@page "/editor"
+@page "/editor/{SelectedDate:datetime}"
+@using Doodle.ViewModels
+@using Doodle.Models
+@inject JournalEditorViewModel ViewModel
+@implements IAsyncDisposable
+
+<PageTitle>Journal Editor - Doodle</PageTitle>
+
+<div class="journal-editor-container">
+    <div class="editor-header">
+        <h2>Journal Entry</h2>
+        <div class="date-selector">
+            <label>Date:</label>
+            <input type="date" @bind="ViewModel.SelectedDate" @bind:event="onchange" 
+                   class="form-control" style="display: inline-block; width: auto;" />
+            <button class="btn btn-primary" @onclick="HandleLoadEntry">
+                Load
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ViewModel.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            @ViewModel.ErrorMessage
+        </div>
+    }
+
+    @if (ViewModel.IsLoading)
+    {
+        <div class="text-center">
+            <p>Loading...</p>
+        </div>
+    }
+    else
+    {
+        <div class="editor-content">
+            <!-- Title Input -->
+            <div class="form-group">
+                <label for="entry-title">Title (Optional)</label>
+                <input type="text" id="entry-title" class="form-control" 
+                       @bind="ViewModel.Title" placeholder="Give your entry a title..." />
+            </div>
+
+            <!-- Word Count Display -->
+            <div class="word-count">
+                <strong>Word Count:</strong> @ViewModel.WordCount
+            </div>
+
+            <!-- Content Editor with Split View -->
+            <div class="editor-split">
+                <!-- Markdown Editor -->
+                <div class="editor-panel">
+                    <label for="entry-content">Content (Markdown supported)</label>
+                    <textarea id="entry-content" class="form-control markdown-editor" 
+                              @bind="ViewModel.Content" 
+                              placeholder="Write your thoughts here... Markdown is supported!&#10;&#10;Examples:&#10;# Heading&#10;**Bold text**&#10;*Italic text*&#10;- List item"></textarea>
+                </div>
+
+                <!-- Live Preview -->
+                <div class="preview-panel">
+                    <label>Live Preview</label>
+                    <div class="preview-content">
+                        <MarkdownView MarkdownText="@ViewModel.Content" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mood Selection -->
+            <div class="mood-section">
+                <h3>Moods</h3>
+                
+                <!-- Primary Mood (Required) -->
+                <div class="form-group">
+                    <label>Primary Mood <span class="required">*</span></label>
+                    <select class="form-control" @bind="ViewModel.SelectedPrimaryMoodId">
+                        <option value="">-- Select Primary Mood --</option>
+                        @foreach (var mood in ViewModel.AvailableMoods.GroupBy(m => m.Category))
+                        {
+                            <optgroup label="@mood.Key">
+                                @foreach (var m in mood)
+                                {
+                                    <option value="@m.Id">@m.Icon @m.Name</option>
+                                }
+                            </optgroup>
+                        }
+                    </select>
+                </div>
+
+                <!-- Secondary Moods (Optional, max 2) -->
+                <div class="form-group">
+                    <label>Secondary Moods (Optional, up to 2)</label>
+                    <div class="mood-buttons">
+                        @foreach (var mood in ViewModel.AvailableMoods.Where(m => m.Id != ViewModel.SelectedPrimaryMoodId))
+                        {
+                            var isSelected = ViewModel.SelectedSecondaryMoods.Any(m => m.Id == mood.Id);
+                            var isDisabled = !isSelected && ViewModel.SelectedSecondaryMoods.Count >= 2;
+                            <button type="button" 
+                                    class="btn @(isSelected ? "btn-primary" : "btn-outline-secondary")"
+                                    disabled="@isDisabled"
+                                    @onclick="() => ToggleSecondaryMood(mood)">
+                                @mood.Icon @mood.Name
+                            </button>
+                        }
+                    </div>
+                    @if (ViewModel.SelectedSecondaryMoods.Any())
+                    {
+                        <div class="selected-secondary-moods">
+                            <strong>Selected:</strong>
+                            @foreach (var mood in ViewModel.SelectedSecondaryMoods)
+                            {
+                                <span class="badge badge-primary">
+                                    @mood.Icon @mood.Name
+                                    <button type="button" class="btn-close" @onclick="() => ViewModel.RemoveSecondaryMood(mood)">×</button>
+                                </span>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Tag Selection -->
+            <div class="tag-section">
+                <h3>Tags</h3>
+                <div class="tag-buttons">
+                    @foreach (var tag in ViewModel.AvailableTags)
+                    {
+                        var isSelected = ViewModel.SelectedTags.Contains(tag);
+                        <button type="button" 
+                                class="btn @(isSelected ? "btn-success" : "btn-outline-secondary")"
+                                @onclick="() => ViewModel.ToggleTag(tag)">
+                            @tag.Name
+                        </button>
+                    }
+                </div>
+                @if (ViewModel.SelectedTags.Any())
+                {
+                    <div class="selected-tags">
+                        <strong>Selected Tags:</strong>
+                        @foreach (var tag in ViewModel.SelectedTags)
+                        {
+                            <span class="badge badge-success" style="background-color: @(tag.Color ?? "#28a745");">
+                                @tag.Name
+                            </span>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="editor-actions">
+                <button class="btn btn-success" @onclick="HandleSaveEntry" 
+                        disabled="@ViewModel.IsLoading">
+                    @(ViewModel.IsEditMode ? "Update Entry" : "Create Entry")
+                </button>
+                @if (ViewModel.IsEditMode)
+                {
+                    <button class="btn btn-danger" @onclick="HandleDelete" 
+                            disabled="@ViewModel.IsLoading">
+                        Delete Entry
+                    </button>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await ViewModel.LoadEntryForDateCommand.ExecuteAsync(null);
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (SelectedDate != default)
+        {
+            ViewModel.SelectedDate = SelectedDate;
+            await ViewModel.LoadEntryForDateCommand.ExecuteAsync(null);
+        }
+    }
+
+    private void ToggleSecondaryMood(Mood mood)
+    {
+        if (ViewModel.SelectedSecondaryMoods.Any(m => m.Id == mood.Id))
+        {
+            var moodToRemove = ViewModel.SelectedSecondaryMoods.FirstOrDefault(m => m.Id == mood.Id);
+            if (moodToRemove != null)
+            {
+                ViewModel.RemoveSecondaryMood(moodToRemove);
+            }
+        }
+        else
+        {
+            ViewModel.AddSecondaryMood(mood);
+        }
+    }
+
+    private async Task HandleDelete()
+    {
+        if (await ConfirmDelete())
+        {
+            await ViewModel.DeleteEntryCommand.ExecuteAsync(null);
+        }
+    }
+
+    private async Task HandleLoadEntry()
+    {
+        await ViewModel.LoadEntryForDateCommand.ExecuteAsync(null);
+    }
+
+    private async Task HandleSaveEntry()
+    {
+        await ViewModel.SaveEntryCommand.ExecuteAsync(null);
+    }
+
+    private async Task<bool> ConfirmDelete()
+    {
+        // In a real application, you might use a JavaScript confirm dialog
+        // For now, we'll use a simple confirmation
+        return await Task.FromResult(true); // Simplified - in production, use JSInterop for confirmation
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        // Cleanup if needed
+        await Task.CompletedTask;
+    }
+
+    [Parameter]
+    public DateTime SelectedDate { get; set; }
+}
+

@@ -1,0 +1,18 @@
+@using Markdig
+
+<!--
+    Markdown rendering component using Markdig library.
+    Converts Markdown-formatted text to HTML for display.
+-->
+<div class="markdown-content">
+    @((MarkupString)Markdown.ToHtml(MarkdownText ?? string.Empty))
+</div>
+
+@code {
+    /// <summary>
+    /// The Markdown text to render as HTML.
+    /// </summary>
+    [Parameter]
+    public string? MarkdownText { get; set; }
+}
+

@@ -1,0 +1,171 @@
+@page "/calendar"
+@using Doodle.ViewModels
+@using Doodle.Models
+@inject CalendarViewModel ViewModel
+@implements IAsyncDisposable
+
+<PageTitle>Calendar - Doodle</PageTitle>
+
+<div class="calendar-container">
+    <div class="calendar-header">
+        <h2>Calendar View</h2>
+        <div class="calendar-navigation">
+            <button class="btn btn-outline-primary" @onclick="HandlePreviousMonth">
+                ← Previous
+            </button>
+            <button class="btn btn-outline-primary" @onclick="HandleToday">
+                Today
+            </button>
+            <button class="btn btn-outline-primary" @onclick="HandleNextMonth">
+                Next →
+            </button>
+        </div>
+    </div>
+
+    <div class="current-month">
+        <h3>@ViewModel.CurrentMonth.ToString("MMMM yyyy")</h3>
+    </div>
+
+    @if (ViewModel.IsLoading)
+    {
+        <div class="text-center">
+            <p>Loading calendar...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Calendar Grid -->
+        <div class="calendar-grid">
+            <!-- Day Headers -->
+            <div class="calendar-day-header">Sun</div>
+            <div class="calendar-day-header">Mon</div>
+            <div class="calendar-day-header">Tue</div>
+            <div class="calendar-day-header">Wed</div>
+            <div class="calendar-day-header">Thu</div>
+            <div class="calendar-day-header">Fri</div>
+            <div class="calendar-day-header">Sat</div>
+
+            <!-- Calendar Days -->
+            @foreach (var day in GetCalendarDays())
+            {
+                var dayClass = GetDayClass(day);
+                <div class="calendar-day @dayClass" @onclick="() => ViewModel.SelectDateAsync(day)">
+                    @day.Day
+                </div>
+            }
+        </div>
+
+        <!-- Selected Entry Preview -->
+        @if (ViewModel.SelectedDate.HasValue)
+        {
+            <div class="entry-preview">
+                <h4>Entry for @ViewModel.SelectedDate.Value.ToString("MMMM dd, yyyy")</h4>
+                @if (ViewModel.SelectedEntry != null)
+                {
+                    <div class="entry-meta">
+                        <span>Word Count: @ViewModel.SelectedEntry.WordCount</span>
+                        <span>Updated: @ViewModel.SelectedEntry.UpdatedAt.ToString("g")</span>
+                    </div>
+                    @if (!string.IsNullOrEmpty(ViewModel.SelectedEntry.Title))
+                    {
+                        <div class="entry-title">@ViewModel.SelectedEntry.Title</div>
+                    }
+                    <div class="entry-preview-text">
+                        @(ViewModel.SelectedEntry.Content.Length > 200 
+                            ? ViewModel.SelectedEntry.Content.Substring(0, 200) + "..." 
+                            : ViewModel.SelectedEntry.Content)
+                    </div>
+                    <div style="margin-top: 1rem;">
+                        <a href="/editor/@ViewModel.SelectedDate.Value.ToString("yyyy-MM-dd")" class="btn btn-primary">
+                            Edit Entry
+                        </a>
+                    </div>
+                }
+                else
+                {
+                    <p>No entry for this date.</p>
+                    <a href="/editor/@ViewModel.SelectedDate.Value.ToString("yyyy-MM-dd")" class="btn btn-success">
+                        Create Entry
+                    </a>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await ViewModel.LoadEntryDatesCommand.ExecuteAsync(null);
+    }
+
+    private List<DateTime> GetCalendarDays()
+    {
+        var days = new List<DateTime>();
+        var firstDayOfMonth = new DateTime(ViewModel.CurrentMonth.Year, ViewModel.CurrentMonth.Month, 1);
+        var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
+
+        // Start from the first day of the week that contains the first day of the month
+        var startDate = firstDayOfMonth.AddDays(-(int)firstDayOfMonth.DayOfWeek);
+        
+        // Generate 42 days (6 weeks) to fill the calendar grid
+        for (int i = 0; i < 42; i++)
+        {
+            days.Add(startDate.AddDays(i));
+        }
+
+        return days;
+    }
+
+    private string GetDayClass(DateTime day)
+    {
+        var classes = new List<string>();
+
+        // Check if day is in current month
+        if (day.Month != ViewModel.CurrentMonth.Month)
+        {
+            classes.Add("other-month");
+        }
+
+        // Check if day is today
+        if (day.Date == DateTime.Today)
+        {
+            classes.Add("today");
+        }
+
+        // Check if day has an entry
+        if (ViewModel.HasEntry(day))
+        {
+            classes.Add("has-entry");
+        }
+
+        // Check if day is selected
+        if (ViewModel.SelectedDate.HasValue && day.Date == ViewModel.SelectedDate.Value.Date)
+        {
+            classes.Add("selected");
+        }
+
+        return string.Join(" ", classes);
+    }
+
+    private async Task HandlePreviousMonth()
+    {
+        await ViewModel.NavigateToPreviousMonthCommand.ExecuteAsync(null);
+    }
+
+    private async Task HandleNextMonth()
+    {
+        await ViewModel.NavigateToNextMonthCommand.ExecuteAsync(null);
+    }
+
+    private async Task HandleToday()
+    {
+        await ViewModel.NavigateToTodayCommand.ExecuteAsync(null);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await Task.CompletedTask;
+    }
+}
+

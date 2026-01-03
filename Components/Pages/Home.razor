@@ -1,0 +1,134 @@
+﻿@page "/"
+@using Doodle.ViewModels
+@using Doodle.Services
+@inject StreakViewModel StreakViewModel
+@inject JournalService JournalService
+@implements IAsyncDisposable
+
+<PageTitle>Home - Doodle</PageTitle>
+
+<div class="home-container">
+    <h1>Welcome to Doodle</h1>
+    <p class="lead">Your personal journaling companion</p>
+
+    <!-- Streak Statistics -->
+    <div class="streak-section">
+        <h2>Your Journaling Streak</h2>
+        @if (StreakViewModel.IsLoading)
+        {
+            <p>Loading statistics...</p>
+        }
+        else
+        {
+            <div class="streak-cards">
+                <div class="streak-card">
+                    <div class="streak-value">@StreakViewModel.CurrentStreak</div>
+                    <div class="streak-label">Current Streak (days)</div>
+                </div>
+                <div class="streak-card">
+                    <div class="streak-value">@StreakViewModel.LongestStreak</div>
+                    <div class="streak-label">Longest Streak (days)</div>
+                </div>
+                <div class="streak-card">
+                    <div class="streak-value">@StreakViewModel.TotalEntries</div>
+                    <div class="streak-label">Total Entries</div>
+                </div>
+                <div class="streak-card">
+                    <div class="streak-value">@StreakViewModel.MissedDays</div>
+                    <div class="streak-label">Missed Days</div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <h2>Quick Actions</h2>
+        <div class="action-buttons">
+            <a href="/editor" class="btn btn-primary btn-lg">
+                Write Today's Entry
+            </a>
+            <a href="/calendar" class="btn btn-outline-primary btn-lg">
+                View Calendar
+            </a>
+            <a href="/search" class="btn btn-outline-primary btn-lg">
+                Search Entries
+            </a>
+        </div>
+    </div>
+
+    <!-- Recent Entries -->
+    <div class="recent-entries">
+        <h2>Recent Entries</h2>
+        @if (_recentEntries.Any())
+        {
+            <div class="entry-list">
+                @foreach (var entry in _recentEntries)
+                {
+                    <div class="entry-item">
+                        <div class="entry-date">@entry.EntryDate.ToString("MMMM dd, yyyy")</div>
+                        @if (!string.IsNullOrEmpty(entry.Title))
+                        {
+                            <div class="entry-title">@entry.Title</div>
+                        }
+                        <div class="entry-preview">
+                            @(entry.Content.Length > 150 
+                                ? entry.Content.Substring(0, 150) + "..." 
+                                : entry.Content)
+                        </div>
+                        <a href="/editor/@entry.EntryDate.ToString("yyyy-MM-dd")" class="btn btn-sm btn-outline-primary">
+                            View/Edit
+                        </a>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <p>No entries yet. <a href="/editor">Start writing your first entry!</a></p>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Doodle.Models.JournalEntry> _recentEntries = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (StreakViewModel?.LoadStreakStatsCommand != null)
+            {
+                await StreakViewModel.LoadStreakStatsCommand.ExecuteAsync(null);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error loading streak stats: {ex.Message}");
+        }
+        
+        await LoadRecentEntriesAsync();
+    }
+
+    private async Task LoadRecentEntriesAsync()
+    {
+        try
+        {
+            if (JournalService != null)
+            {
+                var allEntries = await JournalService.GetAllEntriesAsync();
+                _recentEntries = allEntries?.Take(5).ToList() ?? new List<Doodle.Models.JournalEntry>();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error loading recent entries: {ex.Message}");
+            _recentEntries = new List<Doodle.Models.JournalEntry>();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await Task.CompletedTask;
+    }
+}

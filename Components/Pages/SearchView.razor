@@ -1,0 +1,193 @@
+@page "/search"
+@using Doodle.ViewModels
+@using Doodle.Models
+@inject SearchViewModel ViewModel
+@implements IAsyncDisposable
+
+<PageTitle>Search & Filter - Doodle</PageTitle>
+
+<div class="search-container">
+    <h2>Search & Filter Entries</h2>
+
+    <!-- Search and Filter Panel -->
+    <div class="search-filters">
+        <!-- Text Search -->
+        <div class="filter-group">
+            <label for="search-text">Search Text</label>
+            <input type="text" id="search-text" class="form-control" 
+                   @bind="ViewModel.SearchText" 
+                   placeholder="Search by title or content..." />
+        </div>
+
+        <!-- Date Range Filter -->
+        <div class="filter-group">
+            <label>Date Range</label>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <div>
+                    <label for="start-date">From:</label>
+                    <input type="date" id="start-date" class="form-control" 
+                           @bind="ViewModel.StartDate" />
+                </div>
+                <div>
+                    <label for="end-date">To:</label>
+                    <input type="date" id="end-date" class="form-control" 
+                           @bind="ViewModel.EndDate" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Mood Filter -->
+        <div class="filter-group">
+            <label>Filter by Mood</label>
+            <div class="mood-buttons">
+                @foreach (var mood in ViewModel.AvailableMoods.GroupBy(m => m.Category))
+                {
+                    <div style="margin-bottom: 0.5rem;">
+                        <strong>@mood.Key:</strong>
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.25rem;">
+                            @foreach (var m in mood)
+                            {
+                                var isSelected = ViewModel.SelectedMoodIds.Contains(m.Id);
+                                <button type="button" 
+                                        class="btn @(isSelected ? "btn-primary" : "btn-outline-secondary")"
+                                        @onclick="() => ViewModel.ToggleMoodFilter(m.Id)">
+                                    @m.Icon @m.Name
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Tag Filter -->
+        <div class="filter-group">
+            <label>Filter by Tag</label>
+            <div class="tag-buttons">
+                @foreach (var tag in ViewModel.AvailableTags)
+                {
+                    var isSelected = ViewModel.SelectedTagIds.Contains(tag.Id);
+                    <button type="button" 
+                            class="btn @(isSelected ? "btn-success" : "btn-outline-secondary")"
+                            @onclick="() => ViewModel.ToggleTagFilter(tag.Id)">
+                        @tag.Name
+                    </button>
+                }
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display: flex; gap: 1rem;">
+            <button class="btn btn-primary" @onclick="HandleSearch" 
+                    disabled="@ViewModel.IsLoading">
+                @(ViewModel.IsLoading ? "Searching..." : "Search")
+            </button>
+            <button class="btn btn-outline-secondary" @onclick="HandleClearFilters">
+                Clear Filters
+            </button>
+        </div>
+    </div>
+
+    <!-- Search Results -->
+    @if (ViewModel.IsLoading)
+    {
+        <div class="text-center">
+            <p>Searching...</p>
+        </div>
+    }
+    else if (ViewModel.FilteredEntries.Any())
+    {
+        <div class="search-results">
+            <h3>Found @ViewModel.FilteredEntries.Count entry(ies)</h3>
+            @foreach (var entry in ViewModel.FilteredEntries)
+            {
+                <div class="entry-card @(ViewModel.SelectedEntry?.Id == entry.Id ? "selected" : "")" 
+                     @onclick="() => ViewModel.LoadEntryDetailsAsync(entry.Id)">
+                    <div class="entry-meta">
+                        <span><strong>Date:</strong> @entry.EntryDate.ToString("MMMM dd, yyyy")</span>
+                        <span><strong>Words:</strong> @entry.WordCount</span>
+                    </div>
+                    @if (!string.IsNullOrEmpty(entry.Title))
+                    {
+                        <div class="entry-title">@entry.Title</div>
+                    }
+                    <div class="entry-preview-text">
+                        @(entry.Content.Length > 300 
+                            ? entry.Content.Substring(0, 300) + "..." 
+                            : entry.Content)
+                    </div>
+                    <div style="margin-top: 0.5rem;">
+                        <a href="/editor/@entry.EntryDate.ToString("yyyy-MM-dd")" class="btn btn-sm btn-primary">
+                            View/Edit
+                        </a>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(ViewModel.SearchText) || 
+             ViewModel.StartDate.HasValue || 
+             ViewModel.EndDate.HasValue || 
+             ViewModel.SelectedMoodIds.Any() || 
+             ViewModel.SelectedTagIds.Any())
+    {
+        <div class="text-center">
+            <p>No entries found matching your search criteria.</p>
+        </div>
+    }
+    else
+    {
+        <div class="text-center">
+            <p>Enter search criteria and click "Search" to find entries.</p>
+        </div>
+    }
+
+    <!-- Selected Entry Details -->
+    @if (ViewModel.SelectedEntry != null)
+    {
+        <div class="entry-preview" style="margin-top: 2rem;">
+            <h4>Entry Details</h4>
+            <div class="entry-meta">
+                <span><strong>Date:</strong> @ViewModel.SelectedEntry.EntryDate.ToString("MMMM dd, yyyy")</span>
+                <span><strong>Created:</strong> @ViewModel.SelectedEntry.CreatedAt.ToString("g")</span>
+                <span><strong>Updated:</strong> @ViewModel.SelectedEntry.UpdatedAt.ToString("g")</span>
+                <span><strong>Words:</strong> @ViewModel.SelectedEntry.WordCount</span>
+            </div>
+            @if (!string.IsNullOrEmpty(ViewModel.SelectedEntry.Title))
+            {
+                <div class="entry-title">@ViewModel.SelectedEntry.Title</div>
+            }
+            <div style="margin-top: 1rem;">
+                <MarkdownView MarkdownText="@ViewModel.SelectedEntry.Content" />
+            </div>
+            <div style="margin-top: 1rem;">
+                <a href="/editor/@ViewModel.SelectedEntry.EntryDate.ToString("yyyy-MM-dd")" class="btn btn-primary">
+                    Edit Entry
+                </a>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await ViewModel.LoadFilterOptionsCommand.ExecuteAsync(null);
+    }
+
+    private async Task HandleSearch()
+    {
+        await ViewModel.SearchCommand.ExecuteAsync(null);
+    }
+
+    private void HandleClearFilters()
+    {
+        ViewModel.ClearFiltersCommand.Execute(null);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await Task.CompletedTask;
+    }
+}
+
