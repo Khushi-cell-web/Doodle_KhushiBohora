@@ -1,7 +1,9 @@
 @page "/calendar"
+@namespace Doodle.Components.Pages
 @using Doodle.ViewModels
 @using Doodle.Models
 @inject CalendarViewModel ViewModel
+@inject NavigationManager Navigation
 @implements IAsyncDisposable
 
 <PageTitle>Calendar - Doodle</PageTitle>
@@ -11,13 +13,13 @@
         <h2>Calendar View</h2>
         <div class="calendar-navigation">
             <button class="btn btn-outline-primary" @onclick="HandlePreviousMonth">
-                ← Previous
+                ←
             </button>
             <button class="btn btn-outline-primary" @onclick="HandleToday">
                 Today
             </button>
             <button class="btn btn-outline-primary" @onclick="HandleNextMonth">
-                Next →
+                →
             </button>
         </div>
     </div>
@@ -49,7 +51,7 @@
             @foreach (var day in GetCalendarDays())
             {
                 var dayClass = GetDayClass(day);
-                <div class="calendar-day @dayClass" @onclick="() => ViewModel.SelectDateAsync(day)">
+                <div class="calendar-day @dayClass" @onclick="() => HandleDateClick(day)">
                     @day.Day
                 </div>
             }
@@ -76,17 +78,38 @@
                             : ViewModel.SelectedEntry.Content)
                     </div>
                     <div style="margin-top: 1rem;">
-                        <a href="/editor/@ViewModel.SelectedDate.Value.ToString("yyyy-MM-dd")" class="btn btn-primary">
-                            Edit Entry
+                        <a href="/entry/date/@ViewModel.SelectedDate.Value.ToString("yyyy-MM-dd")" class="btn btn-primary">
+                            View Entry
                         </a>
+                        @if (ViewModel.SelectedDate.Value.Date == DateTime.Today)
+                        {
+                            <a href="/editor/@ViewModel.SelectedDate.Value.ToString("yyyy-MM-dd")" class="btn btn-outline-primary">
+                                Edit Entry
+                            </a>
+                        }
+                        else
+                        {
+                            <div class="alert alert-info" style="margin-top: 0.5rem; padding: 0.5rem 1rem; margin-bottom: 0;">
+                                <small>This entry is read-only. Only today's entries can be edited.</small>
+                            </div>
+                        }
                     </div>
                 }
                 else
                 {
                     <p>No entry for this date.</p>
-                    <a href="/editor/@ViewModel.SelectedDate.Value.ToString("yyyy-MM-dd")" class="btn btn-success">
-                        Create Entry
-                    </a>
+                    @if (ViewModel.SelectedDate.Value.Date == DateTime.Today)
+                    {
+                        <a href="/editor/@ViewModel.SelectedDate.Value.ToString("yyyy-MM-dd")" class="btn btn-success">
+                            Create Entry
+                        </a>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning" style="margin-top: 0.5rem; padding: 0.5rem 1rem;">
+                            <small>New entries can only be created for today's date (@DateTime.Today.ToString("MMMM dd, yyyy")).</small>
+                        </div>
+                    }
                 }
             </div>
         }
@@ -161,6 +184,22 @@
     private async Task HandleToday()
     {
         await ViewModel.NavigateToTodayCommand.ExecuteAsync(null);
+    }
+
+    private async Task HandleDateClick(DateTime date)
+    {
+        // Check if the date has an entry
+        if (ViewModel.HasEntry(date))
+        {
+            // Navigate to the entry view page for this date
+            var dateString = date.ToString("yyyy-MM-dd");
+            Navigation.NavigateTo($"/entry/date/{dateString}");
+        }
+        else
+        {
+            // If no entry, show the preview (current behavior)
+            await ViewModel.SelectDateAsync(date);
+        }
     }
 
     public async ValueTask DisposeAsync()

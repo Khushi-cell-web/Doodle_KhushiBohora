@@ -11,6 +11,7 @@ namespace Doodle.ViewModels;
 public partial class StreakViewModel : ObservableObject
 {
     private readonly StreakService _streakService;
+    private readonly JournalService _journalService;
 
     [ObservableProperty]
     private int _currentStreak;
@@ -25,14 +26,21 @@ public partial class StreakViewModel : ObservableObject
     private int _missedDays;
 
     [ObservableProperty]
+    private int _totalWords;
+
+    [ObservableProperty]
+    private int _averageWords;
+
+    [ObservableProperty]
     private bool _isLoading;
 
     /// <summary>
     /// Initializes a new instance of the StreakViewModel.
     /// </summary>
-    public StreakViewModel(StreakService streakService)
+    public StreakViewModel(StreakService streakService, JournalService journalService)
     {
         _streakService = streakService;
+        _journalService = journalService;
     }
 
     /// <summary>
@@ -49,6 +57,19 @@ public partial class StreakViewModel : ObservableObject
             LongestStreak = stats.LongestStreak;
             TotalEntries = stats.TotalEntries;
             MissedDays = stats.MissedDays;
+
+            // Calculate word counts
+            var allEntries = await _journalService.GetAllEntriesAsync();
+            if (allEntries.Any())
+            {
+                TotalWords = allEntries.Sum(e => e.WordCount);
+                AverageWords = (int)Math.Round(allEntries.Average(e => e.WordCount));
+            }
+            else
+            {
+                TotalWords = 0;
+                AverageWords = 0;
+            }
         }
         catch (Exception ex)
         {

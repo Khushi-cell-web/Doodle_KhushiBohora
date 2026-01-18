@@ -1,0 +1,266 @@
+@namespace Doodle.Components.Shared
+@using Doodle.Services
+
+<!-- PIN Entry Modal -->
+@if (Show)
+{
+    System.Diagnostics.Debug.WriteLine($"PinEntryModal: Rendering modal, Show={Show}");
+    <div class="modal-backdrop pin-modal-backdrop" @onclick="HandleBackdropClick">
+        <div class="modal-dialog pin-modal-dialog" @onclick:stopPropagation="true">
+            <div class="modal-content pin-modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <span style="font-size: 2rem; display: inline-block; margin-right: 0.5rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">🔒</span>
+                        Unlock Doodle
+                    </h5>
+                </div>
+                <div class="modal-body">
+                    <p class="lead">Enter your PIN to unlock</p>
+
+                    @if (SecurityService.IsLockedOut())
+                    {
+                        var lockoutUntil = SecurityService.GetLockoutUntil();
+                        <div class="alert alert-danger" role="alert">
+                            <strong>Account Locked</strong><br />
+                            Too many failed attempts. Please try again after @lockoutUntil?.ToString("HH:mm").
+                        </div>
+                    }
+                    else if (!string.IsNullOrEmpty(_errorMessage))
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            @_errorMessage
+                        </div>
+                    }
+
+                    @if (!SecurityService.IsLockedOut())
+                    {
+                        <div class="pin-input-group">
+                            <input type="password" 
+                                   class="form-control pin-input" 
+                                   @bind="_pinInput" 
+                                   @bind:event="oninput"
+                                   @onkeypress="HandleKeyPress"
+                                   placeholder="Enter PIN"
+                                   maxlength="20"
+                                   autofocus 
+                                   disabled="@_isUnlocking" />
+                        </div>
+
+                        @if (SecurityService.GetRemainingAttempts() < MaxFailedAttempts && SecurityService.GetRemainingAttempts() > 0)
+                        {
+                            <div class="attempts-warning" style="margin-top: 0.5rem;">
+                                <small class="text-warning">
+                                    ⚠️ @SecurityService.GetRemainingAttempts() attempt(s) remaining
+                                </small>
+                            </div>
+                        }
+
+                        <div class="unlock-actions" style="margin-top: 1rem;">
+                            <button class="btn btn-primary btn-lg" @onclick="HandleUnlock" disabled="@_isUnlocking" style="width: 100%;">
+                                @if (_isUnlocking)
+                                {
+                                    <span>Unlocking...</span>
+                                }
+                                else
+                                {
+                                    <span>Unlock</span>
+                                }
+                            </button>
+                        </div>
+                    }
+
+                    <div class="lock-screen-footer" style="margin-top: 1rem; text-align: center;">
+                        <button type="button" class="btn btn-link text-danger" @onclick="HandleForgotPin" 
+                                style="font-size: 0.85rem; padding: 0; text-decoration: underline; cursor: pointer;"
+                                disabled="@_isUnlocking">
+                            Forgot PIN? Reset Security
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_showResetConfirmation)
+    {
+        <div class="modal-backdrop reset-modal-backdrop" style="z-index: 10000; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center;" @onclick="CancelResetSecurity">
+            <div class="modal-dialog" style="z-index: 10001; width: 90%; max-width: 450px; margin: 0;" @onclick:stopPropagation="true">
+                <div class="modal-content" style="background-color: white; border-radius: 0.75rem; box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.3);">
+                    <div class="modal-header" style="border-bottom: 1px solid #dee2e6; padding: 1rem 1.5rem;">
+                        <h5 class="modal-title" style="margin: 0; font-weight: 600;">⚠️ Reset Security</h5>
+                        <button type="button" class="btn-close" @onclick="CancelResetSecurity" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #000;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 1.5rem;">
+                        <p style="margin-bottom: 1rem;"><strong>Warning:</strong> This will permanently delete your PIN and disable security.</p>
+                        <p style="margin-bottom: 1rem;">You will need to set up a new PIN in Settings after resetting.</p>
+                        <p class="text-danger" style="margin-bottom: 0;"><strong>Are you sure you want to continue?</strong></p>
+                    </div>
+                    <div class="modal-footer" style="border-top: 1px solid #dee2e6; padding: 1rem 1.5rem; display: flex; justify-content: flex-end; gap: 0.5rem;">
+                        <button type="button" class="btn btn-secondary" @onclick="CancelResetSecurity" disabled="@_isUnlocking">Cancel</button>
+                        <button type="button" class="btn btn-danger" @onclick="ConfirmResetSecurity" disabled="@_isUnlocking">
+                            @if (_isUnlocking)
+                            {
+                                <span>Resetting...</span>
+                            }
+                            else
+                            {
+                                <span>Reset Security</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter]
+    public bool Show { get; set; }
+
+    [Parameter]
+    public SecurityService SecurityService { get; set; } = null!;
+
+    [Parameter]
+    public SessionService SessionService { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback OnUnlocked { get; set; }
+
+    private const int MaxFailedAttempts = 5;
+    private string _pinInput = string.Empty;
+    private string _errorMessage = string.Empty;
+    private bool _isUnlocking = false;
+    private bool _showResetConfirmation = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Show && !SecurityService.IsLockedOut())
+        {
+            // Focus the PIN input when modal is shown
+            await Task.Delay(100);
+            // Note: autofocus attribute should handle this, but we can add JS interop if needed
+        }
+    }
+
+    private async Task HandleUnlock()
+    {
+        System.Diagnostics.Debug.WriteLine($"Unlock button clicked with PIN: {_pinInput.Length} characters");
+        
+        if (string.IsNullOrWhiteSpace(_pinInput))
+        {
+            _errorMessage = "Please enter your PIN.";
+            StateHasChanged();
+            return;
+        }
+
+        _isUnlocking = true;
+        _errorMessage = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            await Task.Delay(100); // Small delay for UI feedback
+
+            if (SecurityService.VerifyPin(_pinInput))
+            {
+                System.Diagnostics.Debug.WriteLine("PIN verified successfully, unlocking app");
+                SessionService.SetUnlocked();
+                _pinInput = string.Empty;
+                _errorMessage = string.Empty;
+                Show = false;
+                await OnUnlocked.InvokeAsync();
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("PIN verification failed");
+                var remainingAttempts = SecurityService.GetRemainingAttempts();
+                
+                if (SecurityService.IsLockedOut())
+                {
+                    var lockoutUntil = SecurityService.GetLockoutUntil();
+                    _errorMessage = $"Too many failed attempts. Account locked until {lockoutUntil?.ToString("HH:mm")}.";
+                }
+                else if (remainingAttempts > 0)
+                {
+                    _errorMessage = $"Incorrect PIN. {remainingAttempts} attempt(s) remaining.";
+                }
+                else
+                {
+                    _errorMessage = "Incorrect PIN. Account will be locked after next failed attempt.";
+                }
+                
+                _pinInput = string.Empty;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Unlock error: {ex.Message}");
+            _errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isUnlocking = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !SecurityService.IsLockedOut())
+        {
+            await HandleUnlock();
+        }
+    }
+
+    private void HandleBackdropClick()
+    {
+        // Don't allow closing by clicking backdrop - user must enter PIN
+    }
+
+    private async Task HandleForgotPin()
+    {
+        _showResetConfirmation = true;
+        StateHasChanged();
+    }
+
+    private async Task ConfirmResetSecurity()
+    {
+        try
+        {
+            _isUnlocking = true;
+            _errorMessage = string.Empty;
+            _showResetConfirmation = false;
+            StateHasChanged();
+            
+            // Reset security (this disables PIN protection)
+            SecurityService.ResetSecurity();
+            
+            // Since security is now disabled, unlock the session
+            SessionService.SetUnlocked();
+            
+            // Clear PIN input
+            _pinInput = string.Empty;
+            
+            // Close the modal
+            Show = false;
+            
+            // Notify parent that we're unlocked
+            await OnUnlocked.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error resetting security: {ex.Message}");
+            _errorMessage = $"Error resetting security: {ex.Message}";
+            _showResetConfirmation = false;
+            _isUnlocking = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CancelResetSecurity()
+    {
+        _showResetConfirmation = false;
+        StateHasChanged();
+    }
+}

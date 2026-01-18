@@ -1,19 +1,151 @@
-﻿@inherits LayoutComponentBase
+﻿@namespace Doodle.Components.Layout
+@using Doodle.Services
+@using Doodle.Components.Shared
+@using Microsoft.JSInterop
+@inject SecurityService SecurityService
+@inject SessionService SessionService
+@inject NavigationManager Navigation
+@inject ThemeService ThemeService
+@inject IJSRuntime JSRuntime
+@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<!-- PIN Entry Modal - Shows FIRST when security is enabled and app is locked -->
+<PinEntryModal Show="@_showPinModal" 
+               SecurityService="@SecurityService" 
+               SessionService="@SessionService"
+               OnUnlocked="HandleUnlocked" />
 
-    <main>
-        <div class="top-row px-4">
-            <a class="navbar-brand" href="/">
-                <strong>Doodle</strong> - Journaling App
-            </a>
+@if (!_showPinModal)
+{
+    <!-- Only show page content when PIN modal is not shown -->
+    <div class="page">
+        <div class="sidebar">
+            <NavMenu />
         </div>
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+        <main>
+            <div class="top-row px-4">
+                <a class="navbar-brand" href="/">
+                    <strong>Doodle</strong> - Journaling App
+                </a>
+            </div>
+
+            <article class="content px-4">
+                @Body
+            </article>
+        </main>
+    </div>
+}
+
+@code {
+    private bool _showPinModal = false;
+
+    protected override void OnInitialized()
+    {
+        // Check security status IMMEDIATELY on initialization
+        // This ensures the PIN modal appears before any content is rendered
+        System.Diagnostics.Debug.WriteLine("MainLayout: OnInitialized - Checking security");
+        CheckAndShowPinModal();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Also check asynchronously to ensure services are ready
+        await Task.Delay(50); // Small delay to ensure services are initialized
+        System.Diagnostics.Debug.WriteLine("MainLayout: OnInitializedAsync - Checking security again");
+        CheckAndShowPinModal();
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Double-check on first render to ensure modal shows immediately
+            System.Diagnostics.Debug.WriteLine("MainLayout: OnAfterRender (firstRender) - Checking security");
+            CheckAndShowPinModal();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Subscribe to navigation changes
+            Navigation.LocationChanged += async (sender, e) => 
+            {
+                CheckAndShowPinModal();
+                // Re-apply theme colors on navigation
+                await ApplyThemeColorsAsync();
+            };
+            
+            // Apply theme colors to HTML element
+            await ApplyThemeColorsAsync();
+            
+            // Final check after a small delay to ensure services are ready
+            await Task.Delay(100);
+            System.Diagnostics.Debug.WriteLine("MainLayout: OnAfterRenderAsync (firstRender) - Final security check");
+            CheckAndShowPinModal();
+        }
+    }
+
+    private async Task ApplyThemeColorsAsync()
+    {
+        try
+        {
+            var theme = await ThemeService.GetThemeAsync();
+            
+            if (theme == "custom")
+            {
+                // Load and apply custom colors
+                var customColors = await ThemeService.GetCustomColorsAsync();
+                await JSRuntime.InvokeVoidAsync("doodleTheme.applyCustomTheme", 
+                    customColors.DeepGreen, 
+                    customColors.Olive, 
+                    customColors.ClayBeige);
+                System.Diagnostics.Debug.WriteLine($"Custom theme colors applied: DeepGreen={customColors.DeepGreen}, Olive={customColors.Olive}, ClayBeige={customColors.ClayBeige}");
+            }
+            else
+            {
+                var isDark = theme == "dark" || (theme == "auto" && Application.Current?.RequestedTheme == AppTheme.Dark);
+                await JSRuntime.InvokeVoidAsync("doodleTheme.applyTheme", isDark);
+                System.Diagnostics.Debug.WriteLine($"Theme colors applied: {(isDark ? "dark (#30360E)" : "light (#E2D4B9)")}");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error applying theme colors: {ex.Message}");
+        }
+    }
+
+    private void CheckAndShowPinModal()
+    {
+        try
+        {
+            var isSecurityEnabled = SecurityService?.IsSecurityEnabled() ?? false;
+            var isUnlocked = SessionService?.IsUnlocked() ?? false;
+            var shouldShow = isSecurityEnabled && !isUnlocked;
+            
+            System.Diagnostics.Debug.WriteLine($"MainLayout: CheckAndShowPinModal - SecurityEnabled: {isSecurityEnabled}, IsUnlocked: {isUnlocked}, ShouldShow: {shouldShow}, CurrentShow: {_showPinModal}");
+            
+            if (_showPinModal != shouldShow)
+            {
+                _showPinModal = shouldShow;
+                System.Diagnostics.Debug.WriteLine($"MainLayout: PIN modal state changed to: {_showPinModal}");
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"MainLayout: Error in CheckAndShowPinModal: {ex.Message}");
+        }
+    }
+
+    private async Task HandleUnlocked()
+    {
+        _showPinModal = false;
+        StateHasChanged();
+        
+        // Refresh the current page after unlock
+        Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
+    }
+}

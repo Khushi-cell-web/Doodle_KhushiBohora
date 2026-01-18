@@ -1,10 +1,11 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Doodle.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Doodle
 {
     public partial class MainPage : ContentPage
     {
-        private readonly ILogger<MainPage>? _logger;
+        private SecurityService? _securityService;
 
         public MainPage()
         {
@@ -47,25 +48,53 @@ namespace Doodle
             }
         }
 
-        protected override void OnAppearing()
+        protected override async void OnAppearing()
         {
             base.OnAppearing();
             
 #if DEBUG
             System.Diagnostics.Debug.WriteLine("MainPage: OnAppearing called");
+#endif
             
             try
             {
+                // Check security on app appearing
+                await CheckSecurityAsync();
+                
+#if DEBUG
                 if (blazorWebView != null)
                 {
                     System.Diagnostics.Debug.WriteLine("MainPage: BlazorWebView is ready");
                 }
+#endif
             }
             catch (Exception ex)
             {
+#if DEBUG
                 System.Diagnostics.Debug.WriteLine($"MainPage: Error in OnAppearing: {ex.Message}");
-            }
 #endif
+            }
+        }
+
+        private Task CheckSecurityAsync()
+        {
+            try
+            {
+                // Get SecurityService from DI
+                _securityService = Handler?.MauiContext?.Services?.GetService<SecurityService>();
+                
+                if (_securityService != null && _securityService.IsSecurityEnabled())
+                {
+                    System.Diagnostics.Debug.WriteLine("Security enabled, checking if we need to show lock screen");
+                    // Navigation to lock screen will be handled by Blazor routing
+                    // For now, we'll let the Routes component handle it
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error checking security: {ex.Message}");
+            }
+            return Task.CompletedTask;
         }
     }
 }

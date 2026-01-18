@@ -51,6 +51,12 @@ public class JournalEntry
     public int WordCount { get; set; }
 
     /// <summary>
+    /// The category this entry belongs to (optional).
+    /// </summary>
+    [MaxLength(50)]
+    public string? Category { get; set; }
+
+    /// <summary>
     /// Static readonly array of whitespace characters used for word count calculation.
     /// Using static readonly instead of constant array for better performance when called repeatedly.
     /// </summary>

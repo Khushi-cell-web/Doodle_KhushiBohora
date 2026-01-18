@@ -9,14 +9,19 @@ main {
 }
 
 .sidebar {
-    background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
-    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(180deg, #787F56 0%, #30360E 100%);
+    box-shadow: 4px 0 20px rgba(120, 127, 86, 0.3);
+}
+
+/* Custom theme support for sidebar */
+html[data-custom-theme="true"] .sidebar {
+    background: linear-gradient(180deg, var(--custom-olive, #787F56) 0%, var(--custom-deep-green, #30360E) 100%);
 }
 
 .top-row {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 249, 250, 0.95) 100%);
-    border-bottom: 2px solid rgba(102, 126, 234, 0.2);
-    justify-content: flex-end;
+    border-bottom: 2px solid rgba(120, 127, 86, 0.2);
+    justify-content: flex-start;
     height: 3.5rem;
     display: flex;
     align-items: center;
@@ -32,16 +37,26 @@ main {
 
     .top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
         text-decoration: none;
-        color: #667eea;
+        color: #787F56;
     }
     
     .top-row ::deep .navbar-brand {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #787F56 0%, #30360E 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
         font-weight: 700;
         font-size: 1.2rem;
+        margin-left: 0;
+        text-align: left;
+    }
+
+    /* Custom theme support for navbar brand */
+    html[data-custom-theme="true"] .top-row ::deep .navbar-brand {
+        background: linear-gradient(135deg, var(--custom-olive, #787F56) 0%, var(--custom-deep-green, #30360E) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
     }
 
         .top-row ::deep a:first-child {
@@ -65,10 +80,11 @@ main {
     }
 
     .sidebar {
-        width: 250px;
+        width: 280px;
         height: 100vh;
         position: sticky;
         top: 0;
+        min-width: 280px;
     }
 
     .top-row {

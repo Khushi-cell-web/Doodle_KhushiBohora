@@ -1,0 +1,53 @@
+.lock-screen-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 2rem;
+}
+
+.lock-screen-content {
+    background: var(--bs-body-bg, #fff);
+    border-radius: 16px;
+    padding: 3rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+}
+
+.lock-screen-content h1 {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: var(--bs-primary, #0d6efd);
+}
+
+.pin-input-group {
+    margin: 2rem 0;
+}
+
+.pin-input {
+    font-size: 1.5rem;
+    text-align: center;
+    letter-spacing: 0.5rem;
+    padding: 1rem;
+    border: 2px solid var(--bs-border-color, #dee2e6);
+    border-radius: 8px;
+}
+
+.pin-input:focus {
+    border-color: var(--bs-primary, #0d6efd);
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.unlock-actions {
+    margin-top: 2rem;
+}
+
+.unlock-actions .btn {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.1rem;
+}

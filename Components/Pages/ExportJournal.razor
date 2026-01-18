@@ -1,0 +1,142 @@
+@page "/export"
+@namespace Doodle.Components.Pages
+@using Doodle.ViewModels
+@inject ExportJournalViewModel ViewModel
+@implements IAsyncDisposable
+
+<PageTitle>Export Journal - Doodle</PageTitle>
+
+<div class="export-container">
+    <h2>Export Journal Entries</h2>
+    <p class="lead">Export your journal entries to PDF format</p>
+
+    @if (!string.IsNullOrEmpty(ViewModel.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            @ViewModel.ErrorMessage
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(ViewModel.SuccessMessage))
+    {
+        <div class="alert alert-success" role="alert" style="white-space: pre-line;">
+            @ViewModel.SuccessMessage
+        </div>
+    }
+
+    <div class="export-form">
+        <div class="form-group">
+            <label for="start-date">Start Date</label>
+            <input type="date" id="start-date" class="form-control" 
+                   @bind="ViewModel.StartDate" 
+                   @bind:event="onchange"
+                   @bind:after="HandleDateChange" />
+        </div>
+
+        <div class="form-group">
+            <label for="end-date">End Date</label>
+            <input type="date" id="end-date" class="form-control" 
+                   @bind="ViewModel.EndDate" 
+                   @bind:event="onchange"
+                   @bind:after="HandleDateChange" />
+        </div>
+
+        <div class="form-group">
+            <div class="info-box">
+                <p><strong>Entries in range:</strong> @ViewModel.EntriesCount</p>
+            </div>
+        </div>
+
+        <div class="export-actions">
+            <button class="btn btn-primary btn-lg" 
+                    @onclick="HandleExport" 
+                    disabled="@(ViewModel.IsExporting || ViewModel.EntriesCount == 0)"
+                    type="button">
+                @if (ViewModel.IsExporting)
+                {
+                    <span>Exporting...</span>
+                }
+                else
+                {
+                    <span>Export to PDF (@ViewModel.EntriesCount entries)</span>
+                }
+            </button>
+            <a href="/" class="btn btn-outline-secondary btn-lg">Cancel</a>
+        </div>
+        
+        @if (ViewModel.EntriesCount == 0)
+        {
+            <div class="alert alert-warning" style="margin-top: 1rem;">
+                <strong>No entries found</strong> in the selected date range. Please select a different date range or create some journal entries first.
+            </div>
+        }
+    </div>
+
+    <div class="export-info">
+        <h3>Export Information</h3>
+        <ul>
+            <li>All entries within the selected date range will be exported</li>
+            <li>Each entry includes title, content, moods, tags, and metadata</li>
+            <li>The export file will be saved to your device</li>
+        </ul>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await ViewModel.UpdateEntriesCountCommand.ExecuteAsync(null);
+    }
+
+    private async Task HandleDateChange()
+    {
+        await ViewModel.UpdateEntriesCountCommand.ExecuteAsync(null);
+    }
+
+    private async Task HandleExport()
+    {
+        System.Diagnostics.Debug.WriteLine("=== EXPORT BUTTON CLICKED ===");
+        try
+        {
+            if (ViewModel == null)
+            {
+                System.Diagnostics.Debug.WriteLine("ERROR: ViewModel is null!");
+                return;
+            }
+
+            if (ViewModel.ExportToPdfCommand == null)
+            {
+                System.Diagnostics.Debug.WriteLine("ERROR: ExportToPdfCommand is null!");
+                return;
+            }
+
+            System.Diagnostics.Debug.WriteLine($"ViewModel.IsExporting before: {ViewModel.IsExporting}");
+            System.Diagnostics.Debug.WriteLine($"Date range: {ViewModel.StartDate:yyyy-MM-dd} to {ViewModel.EndDate:yyyy-MM-dd}");
+            System.Diagnostics.Debug.WriteLine($"Entries count: {ViewModel.EntriesCount}");
+
+            await ViewModel.ExportToPdfCommand.ExecuteAsync(null);
+            
+            System.Diagnostics.Debug.WriteLine($"ViewModel.IsExporting after: {ViewModel.IsExporting}");
+            System.Diagnostics.Debug.WriteLine($"SuccessMessage: {ViewModel.SuccessMessage}");
+            System.Diagnostics.Debug.WriteLine($"ErrorMessage: {ViewModel.ErrorMessage}");
+            
+            // Force UI update to show success/error messages
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"CRITICAL Export error in UI: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+            if (ViewModel != null)
+            {
+                ViewModel.ErrorMessage = $"Critical error: {ex.Message}";
+            }
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        return ValueTask.CompletedTask;
+    }
+}

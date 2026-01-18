@@ -53,14 +53,19 @@ public class DatabaseService
             await Database.CreateTableAsync<JournalEntry>();
             await Database.CreateTableAsync<Mood>();
             await Database.CreateTableAsync<Tag>();
+            await Database.CreateTableAsync<Category>();
             await Database.CreateTableAsync<EntryMood>();
             await Database.CreateTableAsync<EntryTag>();
+            await Database.CreateTableAsync<UserPreferences>();
 
             // Seed predefined moods if they don't exist
             await SeedPredefinedMoodsAsync();
 
             // Seed some predefined tags if they don't exist
             await SeedPredefinedTagsAsync();
+
+            // Seed predefined categories if they don't exist
+            await SeedPredefinedCategoriesAsync();
         }
         catch (Exception ex)
         {
@@ -113,6 +118,25 @@ public class DatabaseService
             foreach (var tag in predefinedTags)
             {
                 await Database.InsertAsync(tag);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Seeds the database with predefined categories if they don't already exist.
+    /// </summary>
+    private async Task SeedPredefinedCategoriesAsync()
+    {
+        var existingCategories = await Database.Table<Category>()
+            .Where(c => c.IsPredefined)
+            .ToListAsync();
+
+        if (existingCategories.Count == 0)
+        {
+            var predefinedCategories = PredefinedCategories.GetAllPredefinedCategories();
+            foreach (var category in predefinedCategories)
+            {
+                await Database.InsertAsync(category);
             }
         }
     }

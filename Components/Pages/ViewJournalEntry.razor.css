@@ -1,0 +1,112 @@
+.view-entry-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.entry-header {
+    margin-bottom: 2rem;
+}
+
+.entry-actions {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.entry-content {
+    background: var(--bs-body-bg, #fff);
+    border-radius: 8px;
+    padding: 2rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.entry-meta {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--bs-border-color, #dee2e6);
+}
+
+.entry-date {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--bs-primary, #0d6efd);
+}
+
+.entry-timestamps {
+    color: var(--bs-secondary, #6c757d);
+    font-size: 0.9rem;
+}
+
+.entry-title {
+    font-size: 1.75rem;
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+    color: var(--bs-body-color, #212529);
+}
+
+.entry-moods {
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.mood-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+}
+
+.mood-primary {
+    background-color: var(--bs-primary-bg-subtle, #cfe2ff);
+    color: var(--bs-primary-text-emphasis, #084298);
+    border: 1px solid var(--bs-primary-border-subtle, #9ec5fe);
+}
+
+.mood-secondary {
+    background-color: var(--bs-secondary-bg-subtle, #e2e3e5);
+    color: var(--bs-secondary-text-emphasis, #41464b);
+    border: 1px solid var(--bs-secondary-border-subtle, #c4c8cb);
+}
+
+.mood-category {
+    font-style: italic;
+    opacity: 0.8;
+}
+
+.entry-tags {
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tag-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    background-color: var(--bs-info-bg-subtle, #cff4fc);
+    color: var(--bs-info-text-emphasis, #055160);
+    border: 1px solid var(--bs-info-border-subtle, #9eeaf9);
+    border-radius: 15px;
+    font-size: 0.85rem;
+}
+
+.entry-body {
+    margin-bottom: 2rem;
+    line-height: 1.8;
+    min-height: 200px;
+}
+
+.entry-stats {
+    padding-top: 1rem;
+    border-top: 1px solid var(--bs-border-color, #dee2e6);
+    color: var(--bs-secondary, #6c757d);
+    font-size: 0.9rem;
+}
+
+.stat-item {
+    margin-bottom: 0.5rem;
+}

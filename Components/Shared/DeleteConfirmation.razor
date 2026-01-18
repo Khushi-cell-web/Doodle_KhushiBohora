@@ -1,0 +1,55 @@
+@namespace Doodle.Components.Shared
+
+<!-- Delete Confirmation Modal -->
+@if (Show)
+{
+    <div class="modal-backdrop" @onclick="HandleBackdropClick">
+        <div class="modal-dialog" @onclick:stopPropagation="true">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Deletion</h5>
+                    <button type="button" class="btn-close" @onclick="HandleCancel" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>@Message</p>
+                    <p class="text-danger"><strong>This action cannot be undone.</strong></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HandleCancel">Cancel</button>
+                    <button type="button" class="btn btn-danger" @onclick="HandleConfirm">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool Show { get; set; }
+
+    [Parameter]
+    public string Message { get; set; } = "Are you sure you want to delete this entry?";
+
+    [Parameter]
+    public EventCallback OnConfirm { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private async Task HandleConfirm()
+    {
+        Show = false;
+        await OnConfirm.InvokeAsync();
+    }
+
+    private async Task HandleCancel()
+    {
+        Show = false;
+        await OnCancel.InvokeAsync();
+    }
+
+    private async Task HandleBackdropClick()
+    {
+        await HandleCancel();
+    }
+}

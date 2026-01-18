@@ -1,0 +1,294 @@
+@page "/dashboard"
+@namespace Doodle.Components.Pages
+@using Doodle.ViewModels
+@using Doodle.Services
+@inject DashboardViewModel ViewModel
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+<PageTitle>Dashboard - Doodle</PageTitle>
+
+<div class="dashboard-container">
+    <h2>Analytics Dashboard</h2>
+
+    <!-- Date Range Filter -->
+    <div class="analytics-filter">
+        <div class="form-group" style="display: flex; gap: 1rem; align-items: end;">
+            <div>
+                <label>Start Date</label>
+                <input type="date" class="form-control" @bind="ViewModel.AnalyticsStartDate" />
+            </div>
+            <div>
+                <label>End Date</label>
+                <input type="date" class="form-control" @bind="ViewModel.AnalyticsEndDate" />
+            </div>
+            <div>
+                <button class="btn btn-primary" @onclick="HandleLoadAnalytics">Apply Filter</button>
+            </div>
+            <div>
+                <button class="btn btn-outline-secondary" @onclick="HandleClearFilter">Clear</button>
+            </div>
+        </div>
+    </div>
+
+    @if (ViewModel.IsLoading)
+    {
+        <div class="text-center">
+            <p>Loading analytics...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Mood History Chart -->
+        <div class="analytics-section">
+            <h3>Mood History</h3>
+            <div class="mood-history-controls" style="margin-bottom: 1rem;">
+                <label style="margin-right: 0.5rem;">Date Range:</label>
+                <button class="btn btn-sm @(ViewModel.SelectedDateRangeDays == 7 ? "btn-primary" : "btn-outline-primary")" 
+                        @onclick="() => HandleDateRangeChange(7)">
+                    7 Days
+                </button>
+                <button class="btn btn-sm @(ViewModel.SelectedDateRangeDays == 30 ? "btn-primary" : "btn-outline-primary")" 
+                        @onclick="() => HandleDateRangeChange(30)"
+                        style="margin-left: 0.5rem;">
+                    30 Days
+                </button>
+                <button class="btn btn-sm @(ViewModel.SelectedDateRangeDays == 90 ? "btn-primary" : "btn-outline-primary")" 
+                        @onclick="() => HandleDateRangeChange(90)"
+                        style="margin-left: 0.5rem;">
+                    90 Days
+                </button>
+            </div>
+            @if (ViewModel.MoodHistory.Any())
+            {
+                <div style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="moodHistoryChart"></canvas>
+                </div>
+            }
+            else
+            {
+                <p>No mood history data available for the selected date range.</p>
+            }
+        </div>
+
+        <!-- Mood Distribution -->
+        <div class="analytics-section">
+            <h3>Mood Distribution</h3>
+            @if (ViewModel.MoodDistribution.Any())
+            {
+                <div class="mood-distribution">
+                    @foreach (var mood in ViewModel.MoodDistribution.OrderByDescending(m => m.Value))
+                    {
+                        <div class="mood-item">
+                            <div class="mood-name">@mood.Key</div>
+                            <div class="mood-bar-container">
+                                <div class="mood-bar" style="width: @(GetPercentage(mood.Value, ViewModel.MoodDistribution.Values.Max()))%;"></div>
+                            </div>
+                            <div class="mood-count">@mood.Value</div>
+                        </div>
+                    }
+                </div>
+                @if (ViewModel.MostFrequentMood != null)
+                {
+                    <div class="most-frequent">
+                        <strong>Most Frequent Mood:</strong> @ViewModel.MostFrequentMood.Icon @ViewModel.MostFrequentMood.Name 
+                        (@ViewModel.MoodDistribution[ViewModel.MostFrequentMood.Name] times)
+                    </div>
+                }
+            }
+            else
+            {
+                <p>No mood data available.</p>
+            }
+        </div>
+
+        <!-- Tag Usage -->
+        <div class="analytics-section">
+            <h3>Most Used Tags</h3>
+            @if (ViewModel.TagUsage.Any())
+            {
+                <div class="tag-usage">
+                    @foreach (var tag in ViewModel.TagUsage.OrderByDescending(t => t.Value).Take(10))
+                    {
+                        <div class="tag-item">
+                            <span class="tag-name">@tag.Key</span>
+                            <span class="tag-count">@tag.Value</span>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p>No tag data available.</p>
+            }
+        </div>
+
+        <!-- Category Breakdown -->
+        <div class="analytics-section">
+            <h3>Category Breakdown</h3>
+            @if (ViewModel.CategoryBreakdown.Any())
+            {
+                <div class="category-breakdown">
+                    @foreach (var category in ViewModel.CategoryBreakdown.OrderByDescending(c => c.Value))
+                    {
+                        <div class="category-item">
+                            <div class="category-name">@category.Key</div>
+                            <div class="category-bar-container">
+                                <div class="category-bar" style="width: @(GetPercentage(category.Value, ViewModel.CategoryBreakdown.Values.Max()))%;"></div>
+                            </div>
+                            <div class="category-count">@category.Value</div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p>No category data available.</p>
+            }
+        </div>
+
+        <!-- Word Count Trends -->
+        <div class="analytics-section">
+            <h3>Word Count Trends</h3>
+            @if (ViewModel.WordCountTrends.Any())
+            {
+                <div class="word-count-trends">
+                    <div class="trends-header">
+                        <span>Date</span>
+                        <span>Word Count</span>
+                    </div>
+                    @foreach (var trend in ViewModel.WordCountTrends.TakeLast(20))
+                    {
+                        <div class="trend-item">
+                            <span>@trend.Date.ToString("MMM dd, yyyy")</span>
+                            <span>@trend.WordCount</span>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p>No word count data available.</p>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await ViewModel.LoadAnalyticsCommand.ExecuteAsync(null);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await RenderMoodHistoryChart();
+        }
+        else if (ViewModel.MoodHistory.Any())
+        {
+            await UpdateMoodHistoryChart();
+        }
+    }
+
+    private async Task HandleLoadAnalytics()
+    {
+        await ViewModel.LoadAnalyticsCommand.ExecuteAsync(null);
+        await UpdateMoodHistoryChart();
+    }
+
+    private async Task HandleClearFilter()
+    {
+        ViewModel.AnalyticsStartDate = null;
+        ViewModel.AnalyticsEndDate = null;
+        await ViewModel.LoadAnalyticsCommand.ExecuteAsync(null);
+        await UpdateMoodHistoryChart();
+    }
+
+    private async Task HandleDateRangeChange(int days)
+    {
+        await ViewModel.UpdateMoodHistoryDateRangeAsync(days);
+        await UpdateMoodHistoryChart();
+    }
+
+    private async Task RenderMoodHistoryChart()
+    {
+        if (!ViewModel.MoodHistory.Any()) return;
+
+        try
+        {
+            // Prepare data
+            var dates = ViewModel.MoodHistory.Select(m => m.Date.ToString("MMM dd")).ToArray();
+            var categories = ViewModel.MoodHistory.Select(m => m.MoodCategory).ToArray();
+            
+            // Map categories to numeric values for Y-axis
+            // Positive = 2, Neutral = 1, Negative = 0
+            var categoryValues = categories.Select(c => 
+                c == "Positive" ? 2 : (c == "Neutral" ? 1 : 0)
+            ).ToArray();
+
+            await JSRuntime.InvokeVoidAsync("createMoodHistoryChart", 
+                "moodHistoryChart",
+                dates,
+                categoryValues,
+                categories);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error rendering mood history chart: {ex.Message}");
+        }
+    }
+
+    private async Task UpdateMoodHistoryChart()
+    {
+        if (!ViewModel.MoodHistory.Any())
+        {
+            // Destroy existing chart if no data
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("destroyChart", "moodHistoryChart");
+            }
+            catch { }
+            return;
+        }
+
+        try
+        {
+            var dates = ViewModel.MoodHistory.Select(m => m.Date.ToString("MMM dd")).ToArray();
+            var categories = ViewModel.MoodHistory.Select(m => m.MoodCategory).ToArray();
+            var categoryValues = categories.Select(c => 
+                c == "Positive" ? 2 : (c == "Neutral" ? 1 : 0)
+            ).ToArray();
+
+            await JSRuntime.InvokeVoidAsync("updateMoodHistoryChart", 
+                "moodHistoryChart",
+                dates,
+                categoryValues,
+                categories);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error updating mood history chart: {ex.Message}");
+            // If update fails, try to recreate
+            await RenderMoodHistoryChart();
+        }
+    }
+
+    private double GetPercentage(int value, int max)
+    {
+        if (max == 0) return 0;
+        return (value / (double)max) * 100;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            // Clean up chart if needed
+            await JSRuntime.InvokeVoidAsync("destroyChart", "moodHistoryChart");
+        }
+        catch { }
+        await Task.CompletedTask;
+    }
+}

@@ -1,4 +1,5 @@
 @page "/search"
+@namespace Doodle.Components.Pages
 @using Doodle.ViewModels
 @using Doodle.Models
 @inject SearchViewModel ViewModel
@@ -76,6 +77,22 @@
             </div>
         </div>
 
+        <!-- Category Filter -->
+        <div class="filter-group">
+            <label>Filter by Category</label>
+            <div class="category-buttons">
+                @foreach (var category in ViewModel.AvailableCategories)
+                {
+                    var isSelected = ViewModel.SelectedCategories.Contains(category.Name);
+                    <button type="button" 
+                            class="btn @(isSelected ? "btn-info" : "btn-outline-secondary")"
+                            @onclick="() => ViewModel.ToggleCategoryFilter(category.Name)">
+                        @category.Name
+                    </button>
+                }
+            </div>
+        </div>
+
         <!-- Action Buttons -->
         <div style="display: flex; gap: 1rem;">
             <button class="btn btn-primary" @onclick="HandleSearch" 
@@ -99,7 +116,7 @@
     {
         <div class="search-results">
             <h3>Found @ViewModel.FilteredEntries.Count entry(ies)</h3>
-            @foreach (var entry in ViewModel.FilteredEntries)
+            @foreach (var entry in ViewModel.PaginatedEntries)
             {
                 <div class="entry-card @(ViewModel.SelectedEntry?.Id == entry.Id ? "selected" : "")" 
                      @onclick="() => ViewModel.LoadEntryDetailsAsync(entry.Id)">
@@ -117,10 +134,31 @@
                             : entry.Content)
                     </div>
                     <div style="margin-top: 0.5rem;">
-                        <a href="/editor/@entry.EntryDate.ToString("yyyy-MM-dd")" class="btn btn-sm btn-primary">
-                            View/Edit
+                        <a href="/entry/date/@entry.EntryDate.ToString("yyyy-MM-dd")" class="btn btn-sm btn-primary">
+                            View
+                        </a>
+                        <a href="/editor/@entry.EntryDate.ToString("yyyy-MM-dd")" class="btn btn-sm btn-outline-primary">
+                            Edit
                         </a>
                     </div>
+                </div>
+            }
+
+            <!-- Pagination Controls -->
+            @if (ViewModel.TotalPages > 1)
+            {
+                <div class="pagination-controls" style="margin-top: 2rem; display: flex; justify-content: center; align-items: center; gap: 1rem;">
+                    <button class="btn btn-outline-primary" 
+                            @onclick="HandlePreviousPage" 
+                            disabled="@(ViewModel.CurrentPage == 1)">
+                        Previous
+                    </button>
+                    <span>Page @ViewModel.CurrentPage of @ViewModel.TotalPages</span>
+                    <button class="btn btn-outline-primary" 
+                            @onclick="HandleNextPage" 
+                            disabled="@(ViewModel.CurrentPage == ViewModel.TotalPages)">
+                        Next
+                    </button>
                 </div>
             }
         </div>
@@ -129,7 +167,8 @@
              ViewModel.StartDate.HasValue || 
              ViewModel.EndDate.HasValue || 
              ViewModel.SelectedMoodIds.Any() || 
-             ViewModel.SelectedTagIds.Any())
+             ViewModel.SelectedTagIds.Any() ||
+             ViewModel.SelectedCategories.Any())
     {
         <div class="text-center">
             <p>No entries found matching your search criteria.</p>
@@ -161,7 +200,10 @@
                 <MarkdownView MarkdownText="@ViewModel.SelectedEntry.Content" />
             </div>
             <div style="margin-top: 1rem;">
-                <a href="/editor/@ViewModel.SelectedEntry.EntryDate.ToString("yyyy-MM-dd")" class="btn btn-primary">
+                <a href="/entry/date/@ViewModel.SelectedEntry.EntryDate.ToString("yyyy-MM-dd")" class="btn btn-primary">
+                    View Entry
+                </a>
+                <a href="/editor/@ViewModel.SelectedEntry.EntryDate.ToString("yyyy-MM-dd")" class="btn btn-outline-primary">
                     Edit Entry
                 </a>
             </div>
@@ -183,6 +225,16 @@
     private void HandleClearFilters()
     {
         ViewModel.ClearFiltersCommand.Execute(null);
+    }
+
+    private void HandlePreviousPage()
+    {
+        ViewModel.PreviousPageCommand.Execute(null);
+    }
+
+    private void HandleNextPage()
+    {
+        ViewModel.NextPageCommand.Execute(null);
     }
 
     public async ValueTask DisposeAsync()

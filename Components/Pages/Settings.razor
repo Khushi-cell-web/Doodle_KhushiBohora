@@ -1,0 +1,334 @@
+@page "/settings"
+@namespace Doodle.Components.Pages
+@using Doodle.ViewModels
+@using Doodle.Components.Shared
+@using Microsoft.JSInterop
+@inject SettingsViewModel ViewModel
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+<PageTitle>Settings - Doodle</PageTitle>
+
+<div class="settings-container">
+    <h2>Settings</h2>
+    
+    @if (ViewModel.IsLoading)
+    {
+        <div class="text-center">
+            <p>Loading settings...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Appearance Section -->
+        <div class="settings-section">
+            <h3>Appearance</h3>
+            <div class="form-group">
+                <label>Theme</label>
+                <select class="form-control" value="@ViewModel.SelectedTheme" @onchange="@((ChangeEventArgs e) => HandleThemeChange(e))">
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                    <option value="auto">Auto (System)</option>
+                    <option value="custom">Custom</option>
+                </select>
+                <small class="text-muted">Theme changes apply immediately</small>
+            </div>
+
+            @if (ViewModel.SelectedTheme == "custom")
+            {
+                <div class="custom-theme-section" style="margin-top: 1.5rem; padding: 1rem; background: rgba(0, 0, 0, 0.02); border-radius: 8px; border: 1px solid rgba(0, 0, 0, 0.1);">
+                    <h4 style="margin-bottom: 1rem; font-size: 1.1rem; color: #333;">Customize Theme Colors</h4>
+                    
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <span>Deep Green (Dark Mode Background)</span>
+                            <input type="color" class="form-control" style="width: 60px; height: 40px; padding: 2px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;" 
+                                   value="@ViewModel.CustomDeepGreen" 
+                                   @onchange="@((ChangeEventArgs e) => { ViewModel.CustomDeepGreen = e.Value?.ToString() ?? "#30360E"; HandleCustomColorChange(); })" />
+                        </label>
+                        <input type="text" class="form-control" style="margin-top: 0.25rem;" 
+                               value="@ViewModel.CustomDeepGreen" 
+                               @onchange="@((ChangeEventArgs e) => { ViewModel.CustomDeepGreen = e.Value?.ToString() ?? "#30360E"; HandleCustomColorChange(); })" 
+                               placeholder="#30360E" />
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <span>Olive (Primary Accent)</span>
+                            <input type="color" class="form-control" style="width: 60px; height: 40px; padding: 2px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;" 
+                                   value="@ViewModel.CustomOlive" 
+                                   @onchange="@((ChangeEventArgs e) => { ViewModel.CustomOlive = e.Value?.ToString() ?? "#787F56"; HandleCustomColorChange(); })" />
+                        </label>
+                        <input type="text" class="form-control" style="margin-top: 0.25rem;" 
+                               value="@ViewModel.CustomOlive" 
+                               @onchange="@((ChangeEventArgs e) => { ViewModel.CustomOlive = e.Value?.ToString() ?? "#787F56"; HandleCustomColorChange(); })" 
+                               placeholder="#787F56" />
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <span>Clay Beige (Light Mode Background)</span>
+                            <input type="color" class="form-control" style="width: 60px; height: 40px; padding: 2px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;" 
+                                   value="@ViewModel.CustomClayBeige" 
+                                   @onchange="@((ChangeEventArgs e) => { ViewModel.CustomClayBeige = e.Value?.ToString() ?? "#E2D4B9"; HandleCustomColorChange(); })" />
+                        </label>
+                        <input type="text" class="form-control" style="margin-top: 0.25rem;" 
+                               value="@ViewModel.CustomClayBeige" 
+                               @onchange="@((ChangeEventArgs e) => { ViewModel.CustomClayBeige = e.Value?.ToString() ?? "#E2D4B9"; HandleCustomColorChange(); })" 
+                               placeholder="#E2D4B9" />
+                    </div>
+
+                    <div class="form-group" style="margin-top: 1rem;">
+                        <button class="btn btn-primary" @onclick="HandleSaveCustomColors">
+                            Save Custom Colors
+                        </button>
+                        <button class="btn btn-outline-primary" @onclick="HandleResetCustomColors" style="margin-left: 0.5rem;">
+                            Reset to Default
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Security Section -->
+        <div class="settings-section">
+            <h3>Security</h3>
+            @if (ViewModel.IsSecurityEnabled)
+            {
+                <div class="form-group">
+                    <div class="alert alert-info">
+                        <strong>Security is enabled.</strong> Your app is protected with a PIN.
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Current PIN</label>
+                    <input type="password" class="form-control" @bind="ViewModel.CurrentPin" 
+                           placeholder="Enter current PIN" maxlength="20" />
+                </div>
+                <div class="form-group">
+                    <label>New PIN</label>
+                    <input type="password" class="form-control" @bind="ViewModel.NewPin" 
+                           placeholder="Enter new PIN (min 4 characters)" maxlength="20" />
+                </div>
+                <div class="form-group">
+                    <label>Confirm New PIN</label>
+                    <input type="password" class="form-control" @bind="ViewModel.ConfirmPin" 
+                           placeholder="Confirm new PIN" maxlength="20" />
+                </div>
+                <div class="form-group">
+                    <button class="btn btn-primary" @onclick="HandleChangePin">
+                        Change PIN
+                    </button>
+                    <button class="btn btn-danger" @onclick="HandleDisableSecurity" style="margin-left: 0.5rem;">
+                        Disable Security
+                    </button>
+                </div>
+            }
+            else
+            {
+                <div class="form-group">
+                    <div class="alert alert-warning">
+                        <strong>Security is disabled.</strong> Set up a PIN to protect your journal entries.
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>New PIN</label>
+                    <input type="password" class="form-control" @bind="ViewModel.NewPin" 
+                           placeholder="Enter PIN (min 4 characters)" maxlength="20" />
+                </div>
+                <div class="form-group">
+                    <label>Confirm PIN</label>
+                    <input type="password" class="form-control" @bind="ViewModel.ConfirmPin" 
+                           placeholder="Confirm PIN" maxlength="20" />
+                </div>
+                <div class="form-group">
+                    <button class="btn btn-primary" @onclick="HandleSetupSecurity">
+                        Enable Security
+                    </button>
+                </div>
+            }
+        </div>
+
+        <!-- Journal Preferences Section -->
+        <div class="settings-section">
+            <h3>Journal Preferences</h3>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" @bind="ViewModel.EnableNotifications" />
+                    Enable daily journal reminders
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" @bind="ViewModel.AutoSave" />
+                    Auto-save entries while typing
+                </label>
+            </div>
+            <div class="form-group">
+                <label>Default entry time</label>
+                <input type="time" class="form-control" value="@ViewModel.DefaultEntryTime" 
+                       @onchange="@((ChangeEventArgs e) => ViewModel.DefaultEntryTime = e.Value?.ToString() ?? "20:00")" />
+            </div>
+        </div>
+
+        <!-- Data Management Section -->
+        <div class="settings-section">
+            <h3>Data Management</h3>
+            <div class="form-group">
+                <div class="info-box">
+                    <p>To export your journal entries, use the <strong>Export</strong> page from the navigation menu.</p>
+                    <p>You can export entries by date range in PDF format.</p>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Database information</label>
+                <div class="info-box">
+                    <p><strong>Total Entries:</strong> @ViewModel.TotalEntries</p>
+                    <p><strong>Database Location:</strong> Local SQLite</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- About Section -->
+        <div class="settings-section">
+            <h3>About</h3>
+            <div class="info-box">
+                <p><strong>App Name:</strong> Doodle</p>
+                <p><strong>Version:</strong> 1.0.0</p>
+                <p><strong>Description:</strong> Personal journaling application</p>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="settings-actions">
+            <button class="btn btn-primary" @onclick="HandleSave" disabled="@ViewModel.IsLoading">
+                @if (ViewModel.IsLoading)
+                {
+                    <span>Saving...</span>
+                }
+                else
+                {
+                    <span>Save Settings</span>
+                }
+            </button>
+        </div>
+
+        <!-- Status Message -->
+        @if (!string.IsNullOrEmpty(ViewModel.StatusMessage))
+        {
+            <div class="alert @(ViewModel.StatusMessageType == "success" ? "alert-success" : 
+                                ViewModel.StatusMessageType == "error" ? "alert-danger" : "alert-info")" 
+                 style="margin-top: 1rem; white-space: pre-line;">
+                @ViewModel.StatusMessage
+            </div>
+        }
+    }
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await ViewModel.LoadSettingsCommand.ExecuteAsync(null);
+    }
+
+    private async Task HandleSave()
+    {
+        await ViewModel.SaveSettingsCommand.ExecuteAsync(null);
+    }
+
+    private async Task HandleSetupSecurity()
+    {
+        await ViewModel.SetupSecurityCommand.ExecuteAsync(null);
+        StateHasChanged(); // Force UI update after security change
+    }
+
+    private async Task HandleDisableSecurity()
+    {
+        await ViewModel.DisableSecurityCommand.ExecuteAsync(null);
+        StateHasChanged(); // Force UI update after security change
+    }
+
+    private async Task HandleChangePin()
+    {
+        await ViewModel.ChangePinCommand.ExecuteAsync(null);
+        StateHasChanged(); // Force UI update after PIN change
+    }
+
+    private async Task HandleThemeChange(ChangeEventArgs e)
+    {
+        var newTheme = e.Value?.ToString() ?? "auto";
+        System.Diagnostics.Debug.WriteLine($"Theme change triggered: {newTheme}");
+        
+        // Update ViewModel immediately
+        ViewModel.SelectedTheme = newTheme;
+        
+        // Apply theme immediately via SaveSettings
+        await ViewModel.SaveSettingsCommand.ExecuteAsync(null);
+        
+        // Apply theme colors to HTML/body
+        await ApplyThemeColorsAsync();
+        
+        // Force UI refresh
+        StateHasChanged();
+    }
+
+    private async Task ApplyThemeColorsAsync()
+    {
+        try
+        {
+            var theme = ViewModel.SelectedTheme;
+            
+            if (theme == "custom")
+            {
+                // Apply custom colors
+                await JSRuntime.InvokeVoidAsync("doodleTheme.applyCustomTheme", 
+                    ViewModel.CustomDeepGreen, 
+                    ViewModel.CustomOlive, 
+                    ViewModel.CustomClayBeige);
+                System.Diagnostics.Debug.WriteLine($"Custom theme colors applied: DeepGreen={ViewModel.CustomDeepGreen}, Olive={ViewModel.CustomOlive}, ClayBeige={ViewModel.CustomClayBeige}");
+            }
+            else
+            {
+                var isDark = theme == "dark" || (theme == "auto" && Application.Current?.RequestedTheme == AppTheme.Dark);
+                await JSRuntime.InvokeVoidAsync("doodleTheme.applyTheme", isDark);
+                System.Diagnostics.Debug.WriteLine($"Theme colors applied: {(isDark ? "dark (#30360E)" : "light (#E2D4B9)")}");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error applying theme colors: {ex.Message}");
+        }
+    }
+
+    private async Task HandleCustomColorChange()
+    {
+        // Apply custom colors immediately for preview
+        if (ViewModel.SelectedTheme == "custom")
+        {
+            await ApplyThemeColorsAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleSaveCustomColors()
+    {
+        await ViewModel.SaveSettingsCommand.ExecuteAsync(null);
+        await ApplyThemeColorsAsync();
+        StateHasChanged();
+    }
+
+    private async Task HandleResetCustomColors()
+    {
+        ViewModel.CustomDeepGreen = "#30360E";
+        ViewModel.CustomOlive = "#787F56";
+        ViewModel.CustomClayBeige = "#E2D4B9";
+        await HandleSaveCustomColors();
+    }
+
+
+    public async ValueTask DisposeAsync()
+    {
+        await Task.CompletedTask;
+    }
+}

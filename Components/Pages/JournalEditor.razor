@@ -1,8 +1,11 @@
 @page "/editor"
 @page "/editor/{SelectedDate:datetime}"
+@namespace Doodle.Components.Pages
 @using Doodle.ViewModels
 @using Doodle.Models
+@using Doodle.Components.Shared
 @inject JournalEditorViewModel ViewModel
+@inject IJSRuntime JSRuntime
 @implements IAsyncDisposable
 
 <PageTitle>Journal Editor - Doodle</PageTitle>
@@ -13,10 +16,18 @@
         <div class="date-selector">
             <label>Date:</label>
             <input type="date" @bind="ViewModel.SelectedDate" @bind:event="onchange" 
-                   class="form-control" style="display: inline-block; width: auto;" />
+                   class="form-control" style="display: inline-block; width: auto;"
+                   max="@DateTime.Today.ToString("yyyy-MM-dd")"
+                   min="@DateTime.Today.ToString("yyyy-MM-dd")" />
             <button class="btn btn-primary" @onclick="HandleLoadEntry">
                 Load
             </button>
+            @if (ViewModel.SelectedDate.Date != DateTime.Today)
+            {
+                <div class="alert alert-warning" style="margin-top: 0.5rem; padding: 0.5rem 1rem;">
+                    <small>Only today's date (@DateTime.Today.ToString("MMMM dd, yyyy")) can be used for journal entries.</small>
+                </div>
+            }
         </div>
     </div>
 
@@ -52,10 +63,36 @@
             <div class="editor-split">
                 <!-- Markdown Editor -->
                 <div class="editor-panel">
-                    <label for="entry-content">Content (Markdown supported)</label>
+                    <div class="editor-label-with-toolbar">
+                        <label for="entry-content">Content</label>
+                        <div class="formatting-toolbar">
+                            <button type="button" class="format-btn" title="Bold" @onclick="HandleFormatBold">
+                                <strong>B</strong>
+                            </button>
+                            <button type="button" class="format-btn" title="Italic" @onclick="HandleFormatItalic">
+                                <em>I</em>
+                            </button>
+                            <button type="button" class="format-btn" title="Underline" @onclick="HandleFormatUnderline">
+                                <u>U</u>
+                            </button>
+                            <button type="button" class="format-btn" title="Code" @onclick="HandleFormatCode">
+                                <code>&lt;/&gt;</code>
+                            </button>
+                            <button type="button" class="format-btn" title="Bullet List" @onclick="HandleFormatBulletList">
+                                •
+                            </button>
+                            <button type="button" class="format-btn" title="Numbered List" @onclick="HandleFormatNumberedList">
+                                1.
+                            </button>
+                            <button type="button" class="format-btn" title="Link" @onclick="HandleFormatLink">
+                                🔗
+                            </button>
+                        </div>
+                    </div>
                     <textarea id="entry-content" class="form-control markdown-editor" 
-                              @bind="ViewModel.Content" 
-                              placeholder="Write your thoughts here... Markdown is supported!&#10;&#10;Examples:&#10;# Heading&#10;**Bold text**&#10;*Italic text*&#10;- List item"></textarea>
+                              @bind="ViewModel.Content"
+                              @bind:event="oninput"
+                              placeholder="Write your thoughts here... Markdown is supported!&#10;&#10;Examples:&#10;# Heading&#10;**Bold text**&#10;*Italic text*&#10;- List item&#10;[Link text](https://example.com)"></textarea>
                 </div>
 
                 <!-- Live Preview -->
@@ -118,6 +155,52 @@
                         </div>
                     }
                 </div>
+
+                <!-- Add New Mood -->
+                <div style="margin-top: 0.75rem; padding: 0.75rem; background: rgba(0, 0, 0, 0.02); border-radius: 8px; border: 1px solid rgba(0, 0, 0, 0.1);">
+                    <label style="font-weight: 500; margin-bottom: 0.5rem; display: block;">Add New Mood:</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;">
+                        <input type="text" class="form-control" style="flex: 1; min-width: 120px; max-width: 150px;" 
+                               @bind="ViewModel.NewMoodName" 
+                               @bind:event="oninput"
+                               placeholder="Mood name..." />
+                        <input type="text" class="form-control" style="width: 80px;" 
+                               @bind="ViewModel.NewMoodIcon" 
+                               @bind:event="oninput"
+                               placeholder="Icon/Emoji" 
+                               maxlength="5" />
+                        <select class="form-control" style="width: 120px;" @bind="ViewModel.NewMoodCategory">
+                            <option value="Positive">Positive</option>
+                            <option value="Neutral">Neutral</option>
+                            <option value="Negative">Negative</option>
+                        </select>
+                        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="HandleCreateMood">
+                            + Add Mood
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category Selection -->
+            <div class="form-group">
+                <label for="entry-category">Category (Optional)</label>
+                <select id="entry-category" class="form-control" @bind="ViewModel.SelectedCategory">
+                    <option value="">-- No Category --</option>
+                    @foreach (var category in ViewModel.AvailableCategories)
+                    {
+                        <option value="@category.Name">@category.Name</option>
+                    }
+                </select>
+                <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem; align-items: center;">
+                    <input type="text" class="form-control" style="flex: 1; max-width: 200px;" 
+                           @bind="ViewModel.NewCategoryName" 
+                           @bind:event="oninput"
+                           placeholder="New category name..." 
+                           @onkeypress="@((KeyboardEventArgs e) => { if (e.Key == "Enter") HandleCreateCategory(); })" />
+                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="HandleCreateCategory">
+                        + Add Category
+                    </button>
+                </div>
             </div>
 
             <!-- Tag Selection -->
@@ -146,6 +229,16 @@
                         }
                     </div>
                 }
+                <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem; align-items: center;">
+                    <input type="text" class="form-control" style="flex: 1; max-width: 200px;" 
+                           @bind="ViewModel.NewTagName" 
+                           @bind:event="oninput"
+                           placeholder="New tag name..." 
+                           @onkeypress="@((KeyboardEventArgs e) => { if (e.Key == "Enter") HandleCreateTag(); })" />
+                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="HandleCreateTag">
+                        + Add Tag
+                    </button>
+                </div>
             </div>
 
             <!-- Action Buttons -->
@@ -156,7 +249,7 @@
                 </button>
                 @if (ViewModel.IsEditMode)
                 {
-                    <button class="btn btn-danger" @onclick="HandleDelete" 
+                    <button class="btn btn-danger" @onclick="ShowDeleteConfirmation" 
                             disabled="@ViewModel.IsLoading">
                         Delete Entry
                     </button>
@@ -166,7 +259,14 @@
     }
 </div>
 
+<DeleteConfirmation Show="@showDeleteDialog" 
+                    Message="Are you sure you want to delete this journal entry? This action cannot be undone."
+                    OnConfirm="HandleConfirmDelete"
+                    OnCancel="HandleCancelDelete" />
+
 @code {
+    private bool showDeleteDialog = false;
+
     protected override async Task OnInitializedAsync()
     {
         await ViewModel.LoadEntryForDateCommand.ExecuteAsync(null);
@@ -197,12 +297,20 @@
         }
     }
 
-    private async Task HandleDelete()
+    private void ShowDeleteConfirmation()
     {
-        if (await ConfirmDelete())
-        {
-            await ViewModel.DeleteEntryCommand.ExecuteAsync(null);
-        }
+        showDeleteDialog = true;
+    }
+
+    private async Task HandleConfirmDelete()
+    {
+        showDeleteDialog = false;
+        await ViewModel.DeleteEntryCommand.ExecuteAsync(null);
+    }
+
+    private void HandleCancelDelete()
+    {
+        showDeleteDialog = false;
     }
 
     private async Task HandleLoadEntry()
@@ -215,17 +323,62 @@
         await ViewModel.SaveEntryCommand.ExecuteAsync(null);
     }
 
-    private async Task<bool> ConfirmDelete()
+    private async Task HandleFormatBold()
     {
-        // In a real application, you might use a JavaScript confirm dialog
-        // For now, we'll use a simple confirmation
-        return await Task.FromResult(true); // Simplified - in production, use JSInterop for confirmation
+        await ViewModel.FormatBoldCommand.ExecuteAsync(JSRuntime);
     }
 
-    public async ValueTask DisposeAsync()
+    private async Task HandleFormatItalic()
     {
-        // Cleanup if needed
-        await Task.CompletedTask;
+        await ViewModel.FormatItalicCommand.ExecuteAsync(JSRuntime);
+    }
+
+    private async Task HandleFormatUnderline()
+    {
+        await ViewModel.FormatUnderlineCommand.ExecuteAsync(JSRuntime);
+    }
+
+    private async Task HandleFormatCode()
+    {
+        await ViewModel.FormatCodeCommand.ExecuteAsync(JSRuntime);
+    }
+
+    private async Task HandleFormatBulletList()
+    {
+        await ViewModel.FormatBulletListCommand.ExecuteAsync(JSRuntime);
+    }
+
+    private async Task HandleFormatNumberedList()
+    {
+        await ViewModel.FormatNumberedListCommand.ExecuteAsync(JSRuntime);
+    }
+
+    private async Task HandleFormatLink()
+    {
+        await ViewModel.FormatLinkCommand.ExecuteAsync(JSRuntime);
+    }
+
+    private async Task HandleCreateTag()
+    {
+        await ViewModel.CreateTagCommand.ExecuteAsync(null);
+        StateHasChanged();
+    }
+
+    private async Task HandleCreateCategory()
+    {
+        await ViewModel.CreateCategoryCommand.ExecuteAsync(null);
+        StateHasChanged();
+    }
+
+    private async Task HandleCreateMood()
+    {
+        await ViewModel.CreateMoodCommand.ExecuteAsync(null);
+        StateHasChanged();
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        return ValueTask.CompletedTask;
     }
 
     [Parameter]

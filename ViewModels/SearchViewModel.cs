@@ -14,6 +14,7 @@ public partial class SearchViewModel : ObservableObject
     private readonly JournalService _journalService;
     private readonly MoodService _moodService;
     private readonly TagService _tagService;
+    private readonly CategoryService _categoryService;
 
     [ObservableProperty]
     private string _searchText = string.Empty;
@@ -37,7 +38,25 @@ public partial class SearchViewModel : ObservableObject
     private List<int> _selectedTagIds = new();
 
     [ObservableProperty]
+    private List<Category> _availableCategories = new();
+
+    [ObservableProperty]
+    private List<string> _selectedCategories = new();
+
+    [ObservableProperty]
     private List<JournalEntry> _filteredEntries = new();
+
+    [ObservableProperty]
+    private List<JournalEntry> _paginatedEntries = new();
+
+    [ObservableProperty]
+    private int _currentPage = 1;
+
+    [ObservableProperty]
+    private int _pageSize = 10;
+
+    [ObservableProperty]
+    private int _totalPages;
 
     [ObservableProperty]
     private bool _isLoading;
@@ -45,14 +64,30 @@ public partial class SearchViewModel : ObservableObject
     [ObservableProperty]
     private JournalEntry? _selectedEntry;
 
+    [ObservableProperty]
+    private string _newTagName = string.Empty;
+
+    [ObservableProperty]
+    private string _newCategoryName = string.Empty;
+
+    [ObservableProperty]
+    private string _newMoodName = string.Empty;
+
+    [ObservableProperty]
+    private string _newMoodIcon = string.Empty;
+
+    [ObservableProperty]
+    private string _newMoodCategory = "Positive";
+
     /// <summary>
     /// Initializes a new instance of the SearchViewModel.
     /// </summary>
-    public SearchViewModel(JournalService journalService, MoodService moodService, TagService tagService)
+    public SearchViewModel(JournalService journalService, MoodService moodService, TagService tagService, CategoryService categoryService)
     {
         _journalService = journalService;
         _moodService = moodService;
         _tagService = tagService;
+        _categoryService = categoryService;
     }
 
     /// <summary>
@@ -66,6 +101,7 @@ public partial class SearchViewModel : ObservableObject
             IsLoading = true;
             AvailableMoods = await _moodService.GetAllMoodsAsync();
             AvailableTags = await _tagService.GetAllTagsAsync();
+            AvailableCategories = await _categoryService.GetAllCategoriesAsync();
         }
         catch (Exception ex)
         {
@@ -137,7 +173,15 @@ public partial class SearchViewModel : ObservableObject
                 results = results.Where(e => entryIdsByTags.Contains(e.Id)).ToList();
             }
 
+            // Filter by categories if selected
+            if (SelectedCategories.Count > 0)
+            {
+                results = results.Where(e => 
+                    e.Category != null && SelectedCategories.Contains(e.Category)).ToList();
+            }
+
             FilteredEntries = results.OrderByDescending(e => e.EntryDate).ToList();
+            UpdatePagination();
         }
         catch (Exception ex)
         {
@@ -161,7 +205,10 @@ public partial class SearchViewModel : ObservableObject
         EndDate = null;
         SelectedMoodIds = new List<int>();
         SelectedTagIds = new List<int>();
+        SelectedCategories = new List<string>();
         FilteredEntries = new List<JournalEntry>();
+        PaginatedEntries = new List<JournalEntry>();
+        CurrentPage = 1;
         SelectedEntry = null;
     }
 
@@ -204,6 +251,177 @@ public partial class SearchViewModel : ObservableObject
     public async Task LoadEntryDetailsAsync(int entryId)
     {
         SelectedEntry = await _journalService.GetEntryByIdAsync(entryId);
+    }
+
+    /// <summary>
+    /// Toggles a category filter selection.
+    /// </summary>
+    /// <param name="categoryName">The name of the category to toggle.</param>
+    public void ToggleCategoryFilter(string categoryName)
+    {
+        if (SelectedCategories.Contains(categoryName))
+        {
+            SelectedCategories.Remove(categoryName);
+        }
+        else
+        {
+            SelectedCategories.Add(categoryName);
+        }
+    }
+
+    /// <summary>
+    /// Updates pagination based on filtered entries.
+    /// </summary>
+    private void UpdatePagination()
+    {
+        TotalPages = (int)Math.Ceiling(FilteredEntries.Count / (double)PageSize);
+        if (TotalPages == 0) TotalPages = 1;
+        if (CurrentPage > TotalPages) CurrentPage = TotalPages;
+        if (CurrentPage < 1) CurrentPage = 1;
+
+        PaginatedEntries = FilteredEntries
+            .Skip((CurrentPage - 1) * PageSize)
+            .Take(PageSize)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Navigates to the next page.
+    /// </summary>
+    [RelayCommand]
+    public void NextPage()
+    {
+        if (CurrentPage < TotalPages)
+        {
+            CurrentPage++;
+            UpdatePagination();
+        }
+    }
+
+    /// <summary>
+    /// Navigates to the previous page.
+    /// </summary>
+    [RelayCommand]
+    public void PreviousPage()
+    {
+        if (CurrentPage > 1)
+        {
+            CurrentPage--;
+            UpdatePagination();
+        }
+    }
+
+    /// <summary>
+    /// Navigates to a specific page.
+    /// </summary>
+    public void GoToPage(int page)
+    {
+        if (page >= 1 && page <= TotalPages)
+        {
+            CurrentPage = page;
+            UpdatePagination();
+        }
+    }
+
+    /// <summary>
+    /// Creates a new tag and refreshes the available tags list.
+    /// </summary>
+    [RelayCommand]
+    public async Task CreateTagAsync()
+    {
+        if (string.IsNullOrWhiteSpace(NewTagName))
+        {
+            return;
+        }
+
+        try
+        {
+            var newTag = new Tag
+            {
+                Name = NewTagName.Trim(),
+                Color = "#787F56", // Default color
+                IsPredefined = false,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _tagService.CreateTagAsync(newTag);
+            NewTagName = string.Empty;
+            
+            // Refresh available tags
+            AvailableTags = await _tagService.GetAllTagsAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error creating tag: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Creates a new category and refreshes the available categories list.
+    /// </summary>
+    [RelayCommand]
+    public async Task CreateCategoryAsync()
+    {
+        if (string.IsNullOrWhiteSpace(NewCategoryName))
+        {
+            return;
+        }
+
+        try
+        {
+            var newCategory = new Category
+            {
+                Name = NewCategoryName.Trim(),
+                Color = "#787F56", // Default color
+                IsPredefined = false,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _categoryService.CreateCategoryAsync(newCategory);
+            NewCategoryName = string.Empty;
+            
+            // Refresh available categories
+            AvailableCategories = await _categoryService.GetAllCategoriesAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error creating category: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Creates a new mood and refreshes the available moods list.
+    /// </summary>
+    [RelayCommand]
+    public async Task CreateMoodAsync()
+    {
+        if (string.IsNullOrWhiteSpace(NewMoodName))
+        {
+            return;
+        }
+
+        try
+        {
+            var newMood = new Mood
+            {
+                Name = NewMoodName.Trim(),
+                Category = NewMoodCategory,
+                Icon = string.IsNullOrWhiteSpace(NewMoodIcon) ? "😊" : NewMoodIcon.Trim(),
+                IsPredefined = false
+            };
+
+            await _moodService.CreateCustomMoodAsync(newMood);
+            NewMoodName = string.Empty;
+            NewMoodIcon = string.Empty;
+            NewMoodCategory = "Positive";
+            
+            // Refresh available moods
+            AvailableMoods = await _moodService.GetAllMoodsAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error creating mood: {ex.Message}");
+        }
     }
 }
 

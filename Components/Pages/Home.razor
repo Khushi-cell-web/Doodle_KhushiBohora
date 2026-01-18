@@ -1,8 +1,12 @@
 ﻿@page "/"
+@namespace Doodle.Components.Pages
 @using Doodle.ViewModels
 @using Doodle.Services
 @inject StreakViewModel StreakViewModel
-@inject JournalService JournalService
+@inject HomeViewModel HomeViewModel
+@inject SecurityService SecurityService
+@inject SessionService SessionService
+@inject NavigationManager Navigation
 @implements IAsyncDisposable
 
 <PageTitle>Home - Doodle</PageTitle>
@@ -22,20 +26,24 @@
         {
             <div class="streak-cards">
                 <div class="streak-card">
+                    <div class="streak-value">@StreakViewModel.TotalEntries</div>
+                    <div class="streak-label">TOTAL ENTRIES</div>
+                </div>
+                <div class="streak-card">
                     <div class="streak-value">@StreakViewModel.CurrentStreak</div>
-                    <div class="streak-label">Current Streak (days)</div>
+                    <div class="streak-label">CURRENT STREAK</div>
                 </div>
                 <div class="streak-card">
                     <div class="streak-value">@StreakViewModel.LongestStreak</div>
-                    <div class="streak-label">Longest Streak (days)</div>
+                    <div class="streak-label">LONGEST STREAK</div>
                 </div>
                 <div class="streak-card">
-                    <div class="streak-value">@StreakViewModel.TotalEntries</div>
-                    <div class="streak-label">Total Entries</div>
+                    <div class="streak-value">@StreakViewModel.TotalWords</div>
+                    <div class="streak-label">TOTAL WORDS</div>
                 </div>
                 <div class="streak-card">
-                    <div class="streak-value">@StreakViewModel.MissedDays</div>
-                    <div class="streak-label">Missed Days</div>
+                    <div class="streak-value">@StreakViewModel.AverageWords</div>
+                    <div class="streak-label">AVERAGE WORDS</div>
                 </div>
             </div>
         }
@@ -45,25 +53,29 @@
     <div class="quick-actions">
         <h2>Quick Actions</h2>
         <div class="action-buttons">
-            <a href="/editor" class="btn btn-primary btn-lg">
+            <NavLink href="/editor" class="btn btn-primary btn-lg">
                 Write Today's Entry
-            </a>
-            <a href="/calendar" class="btn btn-outline-primary btn-lg">
+            </NavLink>
+            <NavLink href="/calendar" class="btn btn-outline-primary btn-lg">
                 View Calendar
-            </a>
-            <a href="/search" class="btn btn-outline-primary btn-lg">
+            </NavLink>
+            <NavLink href="/search" class="btn btn-outline-primary btn-lg">
                 Search Entries
-            </a>
+            </NavLink>
         </div>
     </div>
 
     <!-- Recent Entries -->
     <div class="recent-entries">
         <h2>Recent Entries</h2>
-        @if (_recentEntries.Any())
+        @if (HomeViewModel.IsLoading)
+        {
+            <p>Loading entries...</p>
+        }
+        else if (HomeViewModel.CurrentPageEntries.Any())
         {
             <div class="entry-list">
-                @foreach (var entry in _recentEntries)
+                @foreach (var entry in HomeViewModel.CurrentPageEntries)
                 {
                     <div class="entry-item">
                         <div class="entry-date">@entry.EntryDate.ToString("MMMM dd, yyyy")</div>
@@ -76,12 +88,38 @@
                                 ? entry.Content.Substring(0, 150) + "..." 
                                 : entry.Content)
                         </div>
-                        <a href="/editor/@entry.EntryDate.ToString("yyyy-MM-dd")" class="btn btn-sm btn-outline-primary">
-                            View/Edit
-                        </a>
+                        <div class="entry-actions">
+                            <a href="/entry/date/@entry.EntryDate.ToString("yyyy-MM-dd")" class="btn btn-sm btn-outline-primary">
+                                View
+                            </a>
+                            @if (HomeViewModel.IsTodayEntry(entry))
+                            {
+                                <a href="/editor/@entry.EntryDate.ToString("yyyy-MM-dd")" class="btn btn-sm btn-outline-secondary">
+                                    Edit
+                                </a>
+                            }
+                        </div>
                     </div>
                 }
             </div>
+            
+            <!-- Pagination Controls -->
+            @if (HomeViewModel.TotalPages > 1)
+            {
+                <div class="pagination-controls">
+                    <button class="btn btn-outline-primary" 
+                            @onclick="HandlePreviousPage" 
+                            disabled="@(!HomeViewModel.HasPreviousPage)">
+                        Previous
+                    </button>
+                    <span class="page-info">Page @HomeViewModel.CurrentPage of @HomeViewModel.TotalPages</span>
+                    <button class="btn btn-outline-primary" 
+                            @onclick="HandleNextPage" 
+                            disabled="@(!HomeViewModel.HasNextPage)">
+                        Next
+                    </button>
+                </div>
+            }
         }
         else
         {
@@ -91,10 +129,24 @@
 </div>
 
 @code {
-    private List<Doodle.Models.JournalEntry> _recentEntries = new();
-
     protected override async Task OnInitializedAsync()
     {
+        System.Diagnostics.Debug.WriteLine("Home page: OnInitializedAsync");
+        
+        // Check if security is enabled and app is locked
+        if (SecurityService.IsSecurityEnabled() && !SessionService.IsUnlocked())
+        {
+            System.Diagnostics.Debug.WriteLine("Security enabled and app is locked, redirecting to lock screen");
+            Navigation.NavigateTo("/lock");
+            return;
+        }
+        
+        // Refresh session if unlocked
+        if (SessionService.IsUnlocked())
+        {
+            SessionService.RefreshSession();
+        }
+        
         try
         {
             if (StreakViewModel?.LoadStreakStatsCommand != null)
@@ -107,28 +159,27 @@
             System.Diagnostics.Debug.WriteLine($"Error loading streak stats: {ex.Message}");
         }
         
-        await LoadRecentEntriesAsync();
-    }
-
-    private async Task LoadRecentEntriesAsync()
-    {
-        try
+        // Load entries with pagination
+        if (HomeViewModel?.LoadEntriesCommand != null)
         {
-            if (JournalService != null)
-            {
-                var allEntries = await JournalService.GetAllEntriesAsync();
-                _recentEntries = allEntries?.Take(5).ToList() ?? new List<Doodle.Models.JournalEntry>();
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Error loading recent entries: {ex.Message}");
-            _recentEntries = new List<Doodle.Models.JournalEntry>();
+            await HomeViewModel.LoadEntriesCommand.ExecuteAsync(null);
         }
     }
 
-    public async ValueTask DisposeAsync()
+    private void HandleNextPage()
     {
-        await Task.CompletedTask;
+        HomeViewModel?.NextPageCommand.Execute(null);
+        StateHasChanged(); // Ensure UI updates
+    }
+
+    private void HandlePreviousPage()
+    {
+        HomeViewModel?.PreviousPageCommand.Execute(null);
+        StateHasChanged(); // Ensure UI updates
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        return ValueTask.CompletedTask;
     }
 }

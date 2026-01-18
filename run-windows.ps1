@@ -22,7 +22,43 @@ Write-Host "Framework: net9.0-windows10.0.19041.0" -ForegroundColor Cyan
 Write-Host ""
 
 try {
-    dotnet run --framework net9.0-windows10.0.19041.0 --project Doodle.csproj
+    # Clean first to remove any cached build artifacts
+    Write-Host "Cleaning previous build..." -ForegroundColor Cyan
+    dotnet clean Doodle.csproj /p:TargetFramework=net9.0-windows10.0.19041.0 /nologo 2>&1 | Out-Null
+    
+    # Build only Windows framework - use MSBuild to skip other frameworks
+    Write-Host "Building Windows framework only..." -ForegroundColor Cyan
+    Write-Host "(Ignoring errors for Android/iOS/MacCatalyst - they require workloads)" -ForegroundColor Gray
+    Write-Host ""
+    
+    # Use MSBuild with explicit target framework and skip invalid configurations
+    $buildResult = dotnet msbuild Doodle.csproj `
+        /p:TargetFramework=net9.0-windows10.0.19041.0 `
+        /p:SkipInvalidConfigurations=true `
+        /p:BuildProjectReferences=false `
+        /t:Restore,Build `
+        /nologo `
+        /v:minimal 2>&1
+    
+    # Filter out workload errors for non-Windows platforms
+    $actualErrors = $buildResult | Where-Object { 
+        $_ -match "error" -and 
+        $_ -notmatch "NETSDK1147" -and
+        $_ -notmatch "maccatalyst" -and
+        $_ -notmatch "android" -and
+        $_ -notmatch "ios"
+    }
+    
+    if ($actualErrors) {
+        Write-Host "Build errors detected:" -ForegroundColor Red
+        $actualErrors | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+        throw "Build failed with errors"
+    }
+    
+    Write-Host "Build completed successfully!" -ForegroundColor Green
+    Write-Host "Starting application..." -ForegroundColor Green
+    Write-Host ""
+    dotnet run --framework net9.0-windows10.0.19041.0 --project Doodle.csproj --no-build
 }
 catch {
     Write-Host ""

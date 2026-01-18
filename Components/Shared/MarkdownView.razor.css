@@ -76,3 +76,24 @@
     color: #666;
 }
 
+.markdown-content a {
+    color: var(--custom-olive, #787F56);
+    text-decoration: underline;
+    transition: color 0.2s ease;
+}
+
+.markdown-content a:hover {
+    color: var(--custom-deep-green, #30360E);
+    text-decoration: underline;
+}
+
+/* Dark mode support for links */
+html[data-theme="dark"] .markdown-content a,
+html[data-bs-theme="dark"] .markdown-content a {
+    color: #E2D4B9;
+}
+
+html[data-theme="dark"] .markdown-content a:hover,
+html[data-bs-theme="dark"] .markdown-content a:hover {
+    color: #787F56;
+}
