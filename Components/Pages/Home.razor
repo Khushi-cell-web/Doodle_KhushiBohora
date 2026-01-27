@@ -1,12 +1,14 @@
-﻿@page "/"
+@page "/"
 @namespace Doodle.Components.Pages
 @using Doodle.ViewModels
 @using Doodle.Services
+@using Doodle.Components.Shared
 @inject StreakViewModel StreakViewModel
 @inject HomeViewModel HomeViewModel
 @inject SecurityService SecurityService
 @inject SessionService SessionService
 @inject NavigationManager Navigation
+@inject StreakService StreakService
 @implements IAsyncDisposable
 
 <PageTitle>Home - Doodle</PageTitle>
@@ -54,13 +56,19 @@
         <h2>Quick Actions</h2>
         <div class="action-buttons">
             <NavLink href="/editor" class="btn btn-primary btn-lg">
-                Write Today's Entry
+                Write Entry
             </NavLink>
             <NavLink href="/calendar" class="btn btn-outline-primary btn-lg">
                 View Calendar
             </NavLink>
             <NavLink href="/search" class="btn btn-outline-primary btn-lg">
                 Search Entries
+            </NavLink>
+            <NavLink href="/dashboard" class="btn btn-outline-primary btn-lg">
+                Dashboard
+            </NavLink>
+            <NavLink href="/export" class="btn btn-outline-primary btn-lg">
+                Export
             </NavLink>
         </div>
     </div>
@@ -84,14 +92,22 @@
                             <div class="entry-title">@entry.Title</div>
                         }
                         <div class="entry-preview">
-                            @(entry.Content.Length > 150 
-                                ? entry.Content.Substring(0, 150) + "..." 
-                                : entry.Content)
+                            @if (entry.Content.Length > 150)
+                            {
+                                <MarkdownView MarkdownText="@(entry.Content.Substring(0, 150) + "...")" />
+                            }
+                            else
+                            {
+                                <MarkdownView MarkdownText="@entry.Content" />
+                            }
                         </div>
                         <div class="entry-actions">
                             <a href="/entry/date/@entry.EntryDate.ToString("yyyy-MM-dd")" class="btn btn-sm btn-outline-primary">
                                 View
                             </a>
+                            <button class="btn btn-sm btn-danger" @onclick="() => ShowDeleteConfirmation(entry)" type="button">
+                                Delete
+                            </button>
                             @if (HomeViewModel.IsTodayEntry(entry))
                             {
                                 <a href="/editor/@entry.EntryDate.ToString("yyyy-MM-dd")" class="btn btn-sm btn-outline-secondary">
@@ -128,7 +144,30 @@
     </div>
 </div>
 
+<DeleteConfirmation Show="@showDeleteDialog" 
+                    Message="@deleteMessage"
+                    OnConfirm="HandleConfirmDelete"
+                    OnCancel="HandleCancelDelete" />
+
+@if (showToast && !string.IsNullOrWhiteSpace(toastMessage))
+{
+    <div style="position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 2000; max-width: 420px;">
+        <div class="alert @toastCssClass shadow" role="alert" style="margin: 0;">
+            <div style="display: flex; align-items: start; justify-content: space-between; gap: 0.75rem;">
+                <div>@toastMessage</div>
+                <button type="button" class="btn-close" aria-label="Close" @onclick="HideToast"></button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
+    private bool showDeleteDialog = false;
+    private JournalEntry? entryToDelete = null;
+    private string deleteMessage = "Are you sure you want to delete this journal entry? This action cannot be undone.";
+    private bool showToast = false;
+    private string? toastMessage;
+    private string toastCssClass = "alert-success";
     protected override async Task OnInitializedAsync()
     {
         System.Diagnostics.Debug.WriteLine("Home page: OnInitializedAsync");
@@ -176,6 +215,67 @@
     {
         HomeViewModel?.PreviousPageCommand.Execute(null);
         StateHasChanged(); // Ensure UI updates
+    }
+
+    private void ShowDeleteConfirmation(JournalEntry entry)
+    {
+        entryToDelete = entry;
+        var dateStr = entry.EntryDate.ToString("MMMM dd, yyyy");
+        deleteMessage = $"Are you sure you want to delete the journal entry from {dateStr}? This action cannot be undone.";
+        showDeleteDialog = true;
+        StateHasChanged();
+    }
+
+    private async Task HandleConfirmDelete()
+    {
+        showDeleteDialog = false;
+        
+        if (entryToDelete != null)
+        {
+            try
+            {
+                await HomeViewModel.DeleteEntryCommand.ExecuteAsync(entryToDelete.Id);
+                
+                // Reload entries and streak stats after deletion
+                await HomeViewModel.LoadEntriesCommand.ExecuteAsync(null);
+                await StreakViewModel.LoadStreakStatsCommand.ExecuteAsync(null);
+                
+                await ShowToastAsync("Journal entry deleted successfully.", isError: false);
+            }
+            catch (Exception ex)
+            {
+                await ShowToastAsync($"Error deleting entry: {ex.Message}", isError: true);
+            }
+        }
+        
+        entryToDelete = null;
+        StateHasChanged();
+    }
+
+    private void HandleCancelDelete()
+    {
+        showDeleteDialog = false;
+        entryToDelete = null;
+        StateHasChanged();
+    }
+
+    private async Task ShowToastAsync(string message, bool isError)
+    {
+        toastMessage = message;
+        toastCssClass = isError ? "alert-danger" : "alert-success";
+        showToast = true;
+        await InvokeAsync(StateHasChanged);
+
+        // Auto-hide after 3 seconds
+        await Task.Delay(3000);
+        HideToast();
+    }
+
+    private void HideToast()
+    {
+        showToast = false;
+        toastMessage = null;
+        StateHasChanged();
     }
 
     public ValueTask DisposeAsync()
