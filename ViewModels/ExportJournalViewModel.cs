@@ -24,7 +24,7 @@ public partial class ExportJournalViewModel : ObservableObject
     private readonly TagService _tagService;
 
     [ObservableProperty]
-    private DateTime _startDate = DateTime.Today.AddMonths(-1);
+    private DateTime _startDate = new DateTime(2026, 1, 1);
 
     [ObservableProperty]
     private DateTime _endDate = DateTime.Today;
@@ -56,12 +56,23 @@ public partial class ExportJournalViewModel : ObservableObject
     {
         try
         {
-            var entries = await _journalService.GetEntriesByDateRangeAsync(StartDate, EndDate);
+            System.Diagnostics.Debug.WriteLine($"UpdateEntriesCountAsync: StartDate={StartDate:yyyy-MM-dd}, EndDate={EndDate:yyyy-MM-dd}");
+            
+            // Ensure dates are normalized
+            var start = StartDate.Date;
+            var end = EndDate.Date;
+            
+            System.Diagnostics.Debug.WriteLine($"UpdateEntriesCountAsync: Normalized StartDate={start:yyyy-MM-dd}, EndDate={end:yyyy-MM-dd}");
+            
+            var entries = await _journalService.GetEntriesByDateRangeAsync(start, end);
             EntriesCount = entries.Count;
+            
+            System.Diagnostics.Debug.WriteLine($"UpdateEntriesCountAsync: Found {EntriesCount} entries in range");
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error counting entries: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
             EntriesCount = 0;
         }
     }
@@ -91,8 +102,16 @@ public partial class ExportJournalViewModel : ObservableObject
                 return;
             }
 
+            // Normalize dates to ensure only date comparison (no time component)
+            var start = StartDate.Date;
+            var end = EndDate.Date;
+            
+            System.Diagnostics.Debug.WriteLine($"Export: Normalized date range: {start:yyyy-MM-dd} to {end:yyyy-MM-dd}");
+
             // Get entries in date range
-            var entries = await _journalService.GetEntriesByDateRangeAsync(StartDate, EndDate);
+            var entries = await _journalService.GetEntriesByDateRangeAsync(start, end);
+            
+            System.Diagnostics.Debug.WriteLine($"Export: Retrieved {entries.Count} entries for export");
             
             if (entries.Count == 0)
             {
