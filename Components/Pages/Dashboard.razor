@@ -71,37 +71,6 @@
             }
         </div>
 
-        <!-- Mood Distribution -->
-        <div class="analytics-section">
-            <h3>Mood Distribution</h3>
-            @if (ViewModel.MoodDistribution.Any())
-            {
-                <div class="mood-distribution">
-                    @foreach (var mood in ViewModel.MoodDistribution.OrderByDescending(m => m.Value))
-                    {
-                        <div class="mood-item">
-                            <div class="mood-name">@mood.Key</div>
-                            <div class="mood-bar-container">
-                                <div class="mood-bar" style="width: @(GetPercentage(mood.Value, ViewModel.MoodDistribution.Values.Max()))%;"></div>
-                            </div>
-                            <div class="mood-count">@mood.Value</div>
-                        </div>
-                    }
-                </div>
-                @if (ViewModel.MostFrequentMood != null)
-                {
-                    <div class="most-frequent">
-                        <strong>Most Frequent Mood:</strong> @ViewModel.MostFrequentMood.Icon @ViewModel.MostFrequentMood.Name 
-                        (@ViewModel.MoodDistribution[ViewModel.MostFrequentMood.Name] times)
-                    </div>
-                }
-            }
-            else
-            {
-                <p>No mood data available.</p>
-            }
-        </div>
-
         <!-- Tag Usage -->
         <div class="analytics-section">
             <h3>Most Used Tags</h3>
@@ -171,6 +140,28 @@
                 <p>No word count data available.</p>
             }
         </div>
+
+        <!-- Mood Distribution -->
+        <div class="analytics-section">
+            <h3>Mood Distribution</h3>
+            @if (ViewModel.MoodDistribution.Any())
+            {
+                <div style="position: relative; height: 300px; width: 100%; max-width: 600px; margin: 0 auto;">
+                    <canvas id="moodDistributionChart"></canvas>
+                </div>
+                @if (ViewModel.MostFrequentMood != null)
+                {
+                    <div class="most-frequent" style="margin-top: 1rem;">
+                        <strong>Most Frequent Mood:</strong> @ViewModel.MostFrequentMood.Icon @ViewModel.MostFrequentMood.Name 
+                        (@ViewModel.MoodDistribution[ViewModel.MostFrequentMood.Name] times)
+                    </div>
+                }
+            }
+            else
+            {
+                <p>No mood data available.</p>
+            }
+        </div>
     }
 </div>
 
@@ -185,10 +176,18 @@
         if (firstRender)
         {
             await RenderMoodHistoryChart();
+            await RenderMoodDistributionChart();
         }
-        else if (ViewModel.MoodHistory.Any())
+        else
         {
-            await UpdateMoodHistoryChart();
+            if (ViewModel.MoodHistory.Any())
+            {
+                await UpdateMoodHistoryChart();
+            }
+            if (ViewModel.MoodDistribution.Any())
+            {
+                await UpdateMoodDistributionChart();
+            }
         }
     }
 
@@ -196,6 +195,7 @@
     {
         await ViewModel.LoadAnalyticsCommand.ExecuteAsync(null);
         await UpdateMoodHistoryChart();
+        await UpdateMoodDistributionChart();
     }
 
     private async Task HandleClearFilter()
@@ -204,6 +204,7 @@
         ViewModel.AnalyticsEndDate = null;
         await ViewModel.LoadAnalyticsCommand.ExecuteAsync(null);
         await UpdateMoodHistoryChart();
+        await UpdateMoodDistributionChart();
     }
 
     private async Task HandleDateRangeChange(int days)
@@ -275,6 +276,55 @@
         }
     }
 
+    private async Task RenderMoodDistributionChart()
+    {
+        if (!ViewModel.MoodDistribution.Any()) return;
+
+        try
+        {
+            var moodNames = ViewModel.MoodDistribution.OrderByDescending(m => m.Value).Select(m => m.Key).ToArray();
+            var moodCounts = ViewModel.MoodDistribution.OrderByDescending(m => m.Value).Select(m => m.Value).ToArray();
+
+            await JSRuntime.InvokeVoidAsync("createMoodDistributionChart",
+                "moodDistributionChart",
+                moodNames,
+                moodCounts);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error rendering mood distribution chart: {ex.Message}");
+        }
+    }
+
+    private async Task UpdateMoodDistributionChart()
+    {
+        if (!ViewModel.MoodDistribution.Any())
+        {
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("destroyChart", "moodDistributionChart");
+            }
+            catch { }
+            return;
+        }
+
+        try
+        {
+            var moodNames = ViewModel.MoodDistribution.OrderByDescending(m => m.Value).Select(m => m.Key).ToArray();
+            var moodCounts = ViewModel.MoodDistribution.OrderByDescending(m => m.Value).Select(m => m.Value).ToArray();
+
+            await JSRuntime.InvokeVoidAsync("updateMoodDistributionChart",
+                "moodDistributionChart",
+                moodNames,
+                moodCounts);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error updating mood distribution chart: {ex.Message}");
+            await RenderMoodDistributionChart();
+        }
+    }
+
     private double GetPercentage(int value, int max)
     {
         if (max == 0) return 0;
@@ -285,8 +335,9 @@
     {
         try
         {
-            // Clean up chart if needed
+            // Clean up charts
             await JSRuntime.InvokeVoidAsync("destroyChart", "moodHistoryChart");
+            await JSRuntime.InvokeVoidAsync("destroyChart", "moodDistributionChart");
         }
         catch { }
         await Task.CompletedTask;
