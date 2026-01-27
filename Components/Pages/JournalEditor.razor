@@ -66,6 +66,12 @@
                     <div class="editor-label-with-toolbar">
                         <label for="entry-content">Content</label>
                         <div class="formatting-toolbar">
+                            <button type="button" class="format-btn" title="Heading 1" @onclick="HandleFormatHeading1">
+                                <strong>H1</strong>
+                            </button>
+                            <button type="button" class="format-btn" title="Heading 2" @onclick="HandleFormatHeading2">
+                                <strong>H2</strong>
+                            </button>
                             <button type="button" class="format-btn" title="Bold" @onclick="HandleFormatBold">
                                 <strong>B</strong>
                             </button>
@@ -264,8 +270,23 @@
                     OnConfirm="HandleConfirmDelete"
                     OnCancel="HandleCancelDelete" />
 
+@if (showToast && !string.IsNullOrWhiteSpace(toastMessage))
+{
+    <div style="position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 2000; max-width: 420px;">
+        <div class="alert @toastCssClass shadow" role="alert" style="margin: 0;">
+            <div style="display: flex; align-items: start; justify-content: space-between; gap: 0.75rem;">
+                <div>@toastMessage</div>
+                <button type="button" class="btn-close" aria-label="Close" @onclick="HideToast"></button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private bool showDeleteDialog = false;
+    private bool showToast = false;
+    private string? toastMessage;
+    private string toastCssClass = "alert-success";
 
     protected override async Task OnInitializedAsync()
     {
@@ -306,6 +327,7 @@
     {
         showDeleteDialog = false;
         await ViewModel.DeleteEntryCommand.ExecuteAsync(null);
+        await ShowToastFromViewModelAsync();
     }
 
     private void HandleCancelDelete()
@@ -320,7 +342,61 @@
 
     private async Task HandleSaveEntry()
     {
+        // Ensure we have the latest content from the textarea before saving
+        await EnsureContentSyncedAsync();
         await ViewModel.SaveEntryCommand.ExecuteAsync(null);
+        await ShowToastFromViewModelAsync();
+    }
+
+    private async Task ShowToastFromViewModelAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(ViewModel.ErrorMessage))
+            return;
+
+        if (string.IsNullOrWhiteSpace(ViewModel.SuccessMessage))
+            return;
+
+        var msg = ViewModel.SuccessMessage;
+        ViewModel.SuccessMessage = null;
+
+        await ShowToastAsync(msg!, isError: false);
+    }
+
+    private async Task ShowToastAsync(string message, bool isError)
+    {
+        toastMessage = message;
+        toastCssClass = isError ? "alert-danger" : "alert-success";
+        showToast = true;
+        await InvokeAsync(StateHasChanged);
+
+        // Auto-hide after a short delay
+        await Task.Delay(2500);
+        HideToast();
+    }
+
+    private void HideToast()
+    {
+        showToast = false;
+        toastMessage = null;
+        StateHasChanged();
+    }
+
+    private async Task EnsureContentSyncedAsync()
+    {
+        try
+        {
+            // Get the current value from the textarea to ensure we save the latest content
+            var textareaValue = await JSRuntime.InvokeAsync<string>("eval", 
+                "document.getElementById('entry-content')?.value || ''");
+            if (!string.IsNullOrEmpty(textareaValue))
+            {
+                ViewModel.Content = textareaValue;
+            }
+        }
+        catch
+        {
+            // If JS interop fails, the @bind should have already synced the value
+        }
     }
 
     private async Task HandleFormatBold()
@@ -356,6 +432,16 @@
     private async Task HandleFormatLink()
     {
         await ViewModel.FormatLinkCommand.ExecuteAsync(JSRuntime);
+    }
+
+    private async Task HandleFormatHeading1()
+    {
+        await ViewModel.FormatHeading1Command.ExecuteAsync(JSRuntime);
+    }
+
+    private async Task HandleFormatHeading2()
+    {
+        await ViewModel.FormatHeading2Command.ExecuteAsync(JSRuntime);
     }
 
     private async Task HandleCreateTag()
