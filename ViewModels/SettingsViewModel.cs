@@ -58,6 +58,9 @@ public partial class SettingsViewModel : ObservableObject
     private string _confirmPin = string.Empty;
 
     [ObservableProperty]
+    private bool _isDisableSecurityMode = false;
+
+    [ObservableProperty]
     private bool _isLoading;
 
     [ObservableProperty]
@@ -205,6 +208,21 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Toggles disable security mode to show only current PIN field.
+    /// </summary>
+    [RelayCommand]
+    public void ToggleDisableSecurityMode()
+    {
+        IsDisableSecurityMode = !IsDisableSecurityMode;
+        if (IsDisableSecurityMode)
+        {
+            // Clear new PIN fields when entering disable mode
+            NewPin = string.Empty;
+            ConfirmPin = string.Empty;
+        }
+    }
+
+    /// <summary>
     /// Disables security protection.
     /// </summary>
     [RelayCommand]
@@ -224,6 +242,7 @@ public partial class SettingsViewModel : ObservableObject
 
             _securityService.DisableSecurity();
             IsSecurityEnabled = false;
+            IsDisableSecurityMode = false;
             CurrentPin = string.Empty;
             StatusMessage = "Security disabled successfully.";
             StatusMessageType = "success";
