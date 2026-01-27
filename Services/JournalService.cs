@@ -137,13 +137,47 @@ public class JournalService
     /// <returns>A list of entries within the date range.</returns>
     public async Task<List<JournalEntry>> GetEntriesByDateRangeAsync(DateTime startDate, DateTime endDate)
     {
+        // Normalize dates to ensure only date comparison (no time component)
         var start = startDate.Date;
-        var end = endDate.Date.AddDays(1).AddTicks(-1); // End of day
-
-        return await _databaseService.Database.Table<JournalEntry>()
-            .Where(e => e.EntryDate >= start && e.EntryDate <= end)
-            .OrderByDescending(e => e.EntryDate)
+        var end = endDate.Date;
+        
+        System.Diagnostics.Debug.WriteLine($"GetEntriesByDateRangeAsync: Requested range from {start:yyyy-MM-dd} to {end:yyyy-MM-dd}");
+        
+        // Get all entries from database
+        var allEntries = await _databaseService.Database.Table<JournalEntry>()
             .ToListAsync();
+        
+        System.Diagnostics.Debug.WriteLine($"GetEntriesByDateRangeAsync: Total entries in database: {allEntries.Count}");
+        
+        // Filter entries where EntryDate (normalized to date only) is within range
+        var filteredEntries = allEntries
+            .Where(e => 
+            {
+                // Normalize entry date to date only (remove time component)
+                var entryDate = e.EntryDate.Date;
+                
+                // Check if entry date is within the range (inclusive on both ends)
+                var isInRange = entryDate >= start && entryDate <= end;
+                
+                if (isInRange)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Entry {e.Id}: EntryDate={entryDate:yyyy-MM-dd} is IN range");
+                }
+                
+                return isInRange;
+            })
+            .OrderByDescending(e => e.EntryDate)
+            .ToList();
+        
+        System.Diagnostics.Debug.WriteLine($"GetEntriesByDateRangeAsync: Found {filteredEntries.Count} entries in range {start:yyyy-MM-dd} to {end:yyyy-MM-dd}");
+        
+        // Log all entry dates for debugging
+        foreach (var entry in allEntries)
+        {
+            System.Diagnostics.Debug.WriteLine($"All Entry {entry.Id}: EntryDate={entry.EntryDate:yyyy-MM-dd HH:mm:ss} (Date only: {entry.EntryDate.Date:yyyy-MM-dd})");
+        }
+        
+        return filteredEntries;
     }
 
     /// <summary>
