@@ -231,3 +231,88 @@ html[data-theme="dark"] .category-count,
 html[data-bs-theme="dark"] .category-count {
     color: #ffffff;
 }
+
+/* Trends Page Styles */
+.most-active-day {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+}
+
+.day-display {
+    text-align: center;
+}
+
+.day-name {
+    font-size: 3rem;
+    font-weight: bold;
+    color: #787F56;
+    display: block;
+    margin-bottom: 1rem;
+}
+
+html[data-theme="dark"] .day-name,
+html[data-bs-theme="dark"] .day-name {
+    color: #9CAF88;
+}
+
+.text-muted {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+html[data-theme="dark"] .text-muted,
+html[data-bs-theme="dark"] .text-muted {
+    color: #adb5bd;
+}
+
+/* Personal Notes Section Styles */
+.personal-notes-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.personal-notes-textarea {
+    width: 100%;
+    min-height: 150px;
+    padding: 1rem;
+    border: 2px solid rgba(120, 127, 86, 0.3);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    resize: vertical;
+    background: rgba(255, 255, 255, 0.05);
+    color: inherit;
+}
+
+.personal-notes-textarea:focus {
+    outline: none;
+    border-color: #787F56;
+    box-shadow: 0 0 0 3px rgba(120, 127, 86, 0.1);
+}
+
+.personal-notes-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.save-message {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+html[data-theme="dark"] .personal-notes-textarea,
+html[data-bs-theme="dark"] .personal-notes-textarea {
+    background: rgba(48, 54, 14, 0.5);
+    border-color: rgba(120, 127, 86, 0.4);
+    color: #e0e0e0;
+}
+
+html[data-theme="dark"] .personal-notes-textarea:focus,
+html[data-bs-theme="dark"] .personal-notes-textarea:focus {
+    border-color: #9CAF88;
+    box-shadow: 0 0 0 3px rgba(156, 175, 136, 0.2);
+}
