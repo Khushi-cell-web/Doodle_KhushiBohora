@@ -1,0 +1,15 @@
+<Project>
+  <!-- Exclude iOS and MacCatalyst platforms from build evaluation -->
+  <PropertyGroup>
+    <EnableDefaultItems Condition="'$(TargetFramework)' != 'net9.0-ios' AND '$(TargetFramework)' != 'net9.0-maccatalyst'">true</EnableDefaultItems>
+  </PropertyGroup>
+  
+  <ItemGroup Condition="'$(TargetFramework)' != 'net9.0-ios' AND '$(TargetFramework)' != 'net9.0-maccatalyst'">
+    <Compile Remove="Platforms\iOS\**" />
+    <Compile Remove="Platforms\MacCatalyst\**" />
+    <None Remove="Platforms\iOS\**" />
+    <None Remove="Platforms\MacCatalyst\**" />
+    <EmbeddedResource Remove="Platforms\iOS\**" />
+    <EmbeddedResource Remove="Platforms\MacCatalyst\**" />
+  </ItemGroup>
+</Project>
