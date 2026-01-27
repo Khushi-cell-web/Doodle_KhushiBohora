@@ -129,9 +129,14 @@
                         <div class="entry-title">@entry.Title</div>
                     }
                     <div class="entry-preview-text">
-                        @(entry.Content.Length > 300 
-                            ? entry.Content.Substring(0, 300) + "..." 
-                            : entry.Content)
+                        @if (entry.Content.Length > 300)
+                        {
+                            <MarkdownView MarkdownText="@(entry.Content.Substring(0, 300) + "...")" />
+                        }
+                        else
+                        {
+                            <MarkdownView MarkdownText="@entry.Content" />
+                        }
                     </div>
                     <div style="margin-top: 0.5rem;">
                         <a href="/entry/date/@entry.EntryDate.ToString("yyyy-MM-dd")" class="btn btn-sm btn-primary">
