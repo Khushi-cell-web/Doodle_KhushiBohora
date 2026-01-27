@@ -182,4 +182,25 @@ public partial class HomeViewModel : ObservableObject
     {
         return entry?.EntryDate.Date == DateTime.Today;
     }
+
+    /// <summary>
+    /// Deletes a journal entry by its ID.
+    /// </summary>
+    /// <param name="entryId">The ID of the entry to delete.</param>
+    [RelayCommand]
+    public async Task DeleteEntryAsync(int entryId)
+    {
+        try
+        {
+            await _journalService.DeleteEntryAsync(entryId);
+            
+            // Reload entries to reflect the deletion
+            await LoadEntriesAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error deleting entry: {ex.Message}");
+            throw;
+        }
+    }
 }
