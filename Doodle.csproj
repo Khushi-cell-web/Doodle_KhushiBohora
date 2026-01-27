@@ -13,6 +13,7 @@
         <SingleProject>true</SingleProject>
         <ImplicitUsings>enable</ImplicitUsings>
         <EnableDefaultCssItems>false</EnableDefaultCssItems>
+        <ScopedCssEnabled>true</ScopedCssEnabled>
         <Nullable>enable</Nullable>
         
         <!-- Build Configuration -->
@@ -106,13 +107,23 @@
         <Content Remove="wwwroot\**\*.map" />
     </ItemGroup>
 
-    <!-- Prevent CSS file locks during build - Clean before any build operation -->
-    <Target Name="CleanScopedCssFiles" BeforeTargets="Build;Rebuild;CoreBuild;PrepareForBuild">
+    <!-- Prevent CSS file locks during build - Only clean on Rebuild -->
+    <Target Name="CleanScopedCssFiles" BeforeTargets="Rebuild">
         <ItemGroup>
             <ScopedCssFiles Include="obj\**\scopedcss\**\*.css" />
         </ItemGroup>
         <!-- Delete CSS files to prevent locks -->
         <Delete Files="@(ScopedCssFiles)" ContinueOnError="true" />
+    </Target>
+
+    <!-- Override the default CSS copy to handle missing files gracefully -->
+    <Target Name="_CopyScopedCssFiles" AfterTargets="Build">
+        <PropertyGroup>
+            <_ScopedCssBundlePath>$(IntermediateOutputPath)$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\scopedcss\bundle\$(AssemblyName).styles.css</_ScopedCssBundlePath>
+            <_ScopedCssProjectBundlePath>$(IntermediateOutputPath)$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\scopedcss\projectbundle\$(AssemblyName).bundle.scp.css</_ScopedCssProjectBundlePath>
+        </PropertyGroup>
+        <Copy SourceFiles="$(_ScopedCssBundlePath)" DestinationFolder="$(OutputPath)" ContinueOnError="true" Condition="Exists('$(_ScopedCssBundlePath)')" />
+        <Copy SourceFiles="$(_ScopedCssProjectBundlePath)" DestinationFolder="$(OutputPath)" ContinueOnError="true" Condition="Exists('$(_ScopedCssProjectBundlePath)')" />
     </Target>
 
 </Project>
