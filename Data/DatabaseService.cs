@@ -57,6 +57,7 @@ public class DatabaseService
             await Database.CreateTableAsync<EntryMood>();
             await Database.CreateTableAsync<EntryTag>();
             await Database.CreateTableAsync<UserPreferences>();
+            await Database.CreateTableAsync<Streak>();
 
             // Seed predefined moods if they don't exist
             await SeedPredefinedMoodsAsync();
