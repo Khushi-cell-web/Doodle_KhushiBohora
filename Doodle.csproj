@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
 
     <PropertyGroup>
         <TargetFrameworks>net9.0-android;net9.0-windows10.0.19041.0</TargetFrameworks>
@@ -38,7 +38,32 @@
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
         <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'tizen'">6.5</SupportedOSPlatformVersion>
+        
+        <!-- Skip invalid configurations to allow building only Windows when other workloads aren't available -->
+        <SkipInvalidConfigurations>true</SkipInvalidConfigurations>
+        
+        <!-- Explicitly exclude iOS and MacCatalyst from build -->
+        <_IsMacCatalystEnabled>false</_IsMacCatalystEnabled>
+        <_IsIOSEnabled>false</_IsIOSEnabled>
+        
+        <!-- Disable MacCatalyst workload requirement -->
+        <_SkipMacCatalystWorkload>true</_SkipMacCatalystWorkload>
+        
+        <!-- Skip workload verification for platforms not in TargetFrameworks -->
+        <_SkipWorkloadCheck>true</_SkipWorkloadCheck>
     </PropertyGroup>
+    
+    <!-- Exclude iOS and MacCatalyst platform folders from build -->
+    <ItemGroup Condition="'$(TargetFramework)' != 'net9.0-ios' AND '$(TargetFramework)' != 'net9.0-maccatalyst'">
+        <Compile Remove="Platforms\iOS\**" />
+        <Compile Remove="Platforms\MacCatalyst\**" />
+        <None Remove="Platforms\iOS\**" />
+        <None Remove="Platforms\MacCatalyst\**" />
+        <EmbeddedResource Remove="Platforms\iOS\**" />
+        <EmbeddedResource Remove="Platforms\MacCatalyst\**" />
+        <MauiAsset Remove="Platforms\iOS\**" />
+        <MauiAsset Remove="Platforms\MacCatalyst\**" />
+    </ItemGroup>
 
     <ItemGroup>
         <!-- App Icon -->
@@ -64,10 +89,10 @@
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
         
         <!-- Microsoft.Extensions Packages (versions match MAUI requirements) -->
-        <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.8" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.8" />
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.8" />
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.8" />
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.9" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.9" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.9" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.9" />
         
         <!-- Third-party Packages -->
         <PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
