@@ -78,6 +78,9 @@ public partial class JournalEditorViewModel : ObservableObject
     private string? _errorMessage;
 
     [ObservableProperty]
+    private string? _successMessage;
+
+    [ObservableProperty]
     private bool _isEditMode;
 
     // Formatting toolbar commands
@@ -192,6 +195,7 @@ public partial class JournalEditorViewModel : ObservableObject
         {
             IsLoading = true;
             ErrorMessage = null;
+            SuccessMessage = null;
 
             // Validate that only today's date can be used
             if (SelectedDate.Date != DateTime.Today)
@@ -223,17 +227,20 @@ public partial class JournalEditorViewModel : ObservableObject
             }
 
             JournalEntry entry;
+            var isUpdate = IsEditMode && CurrentEntry != null;
 
-            if (IsEditMode && CurrentEntry != null)
+            if (isUpdate)
             {
                 // Update existing entry
-                CurrentEntry.Title = Title;
-                CurrentEntry.Content = Content;
-                CurrentEntry.Category = SelectedCategory;
-                CurrentEntry.CalculateWordCount();
-                WordCount = CurrentEntry.WordCount;
+                // CurrentEntry is guaranteed non-null because isUpdate == true
+                var existing = CurrentEntry!;
+                existing.Title = Title;
+                existing.Content = Content;
+                existing.Category = SelectedCategory;
+                existing.CalculateWordCount();
+                WordCount = existing.WordCount;
 
-                entry = await _journalService.UpdateEntryAsync(CurrentEntry);
+                entry = await _journalService.UpdateEntryAsync(existing);
             }
             else
             {
@@ -262,6 +269,7 @@ public partial class JournalEditorViewModel : ObservableObject
             await _tagService.SetEntryTagsAsync(entry.Id, tagIds);
 
             ErrorMessage = null; // Clear any previous errors
+            SuccessMessage = isUpdate ? "Journal entry updated successfully." : "Journal entry created successfully.";
         }
         catch (InvalidOperationException ex)
         {
@@ -290,6 +298,7 @@ public partial class JournalEditorViewModel : ObservableObject
         {
             IsLoading = true;
             ErrorMessage = null;
+            SuccessMessage = null;
 
             await _journalService.DeleteEntryAsync(CurrentEntry.Id);
 
@@ -304,6 +313,8 @@ public partial class JournalEditorViewModel : ObservableObject
             SelectedSecondaryMoods = new List<Mood>();
             SelectedTags = new List<Tag>();
             IsEditMode = false;
+
+            SuccessMessage = "Journal entry deleted successfully.";
         }
         catch (Exception ex)
         {
@@ -482,7 +493,7 @@ public partial class JournalEditorViewModel : ObservableObject
     {
         try
         {
-            var newContent = await jsRuntime.InvokeAsync<string>("editorHelpers.insertTextAtCursor", TextareaId, "- ");
+            var newContent = await jsRuntime.InvokeAsync<string>("editorHelpers.insertListItem", TextareaId, "- ");
             if (!string.IsNullOrEmpty(newContent))
             {
                 Content = newContent;
@@ -502,7 +513,7 @@ public partial class JournalEditorViewModel : ObservableObject
     {
         try
         {
-            var newContent = await jsRuntime.InvokeAsync<string>("editorHelpers.insertTextAtCursor", TextareaId, "1. ");
+            var newContent = await jsRuntime.InvokeAsync<string>("editorHelpers.insertListItem", TextareaId, "1. ");
             if (!string.IsNullOrEmpty(newContent))
             {
                 Content = newContent;
@@ -531,6 +542,46 @@ public partial class JournalEditorViewModel : ObservableObject
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error formatting link: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Formats text as Heading 1 (# text).
+    /// </summary>
+    [RelayCommand]
+    public async Task FormatHeading1Async(IJSRuntime jsRuntime)
+    {
+        try
+        {
+            var newContent = await jsRuntime.InvokeAsync<string>("editorHelpers.wrapTextWithMarkdown", TextareaId, "# ", "", "Heading 1");
+            if (!string.IsNullOrEmpty(newContent))
+            {
+                Content = newContent;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error formatting heading 1: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Formats text as Heading 2 (## text).
+    /// </summary>
+    [RelayCommand]
+    public async Task FormatHeading2Async(IJSRuntime jsRuntime)
+    {
+        try
+        {
+            var newContent = await jsRuntime.InvokeAsync<string>("editorHelpers.wrapTextWithMarkdown", TextareaId, "## ", "", "Heading 2");
+            if (!string.IsNullOrEmpty(newContent))
+            {
+                Content = newContent;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error formatting heading 2: {ex.Message}");
         }
     }
 
