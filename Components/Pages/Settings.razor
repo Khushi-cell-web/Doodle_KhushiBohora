@@ -106,23 +106,38 @@
                     <input type="password" class="form-control" @bind="ViewModel.CurrentPin" 
                            placeholder="Enter current PIN" maxlength="20" />
                 </div>
+                @if (!ViewModel.IsDisableSecurityMode)
+                {
+                    <div class="form-group">
+                        <label>New PIN</label>
+                        <input type="password" class="form-control" @bind="ViewModel.NewPin" 
+                               placeholder="Enter new PIN (min 4 characters)" maxlength="20" />
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm New PIN</label>
+                        <input type="password" class="form-control" @bind="ViewModel.ConfirmPin" 
+                               placeholder="Confirm new PIN" maxlength="20" />
+                    </div>
+                }
                 <div class="form-group">
-                    <label>New PIN</label>
-                    <input type="password" class="form-control" @bind="ViewModel.NewPin" 
-                           placeholder="Enter new PIN (min 4 characters)" maxlength="20" />
-                </div>
-                <div class="form-group">
-                    <label>Confirm New PIN</label>
-                    <input type="password" class="form-control" @bind="ViewModel.ConfirmPin" 
-                           placeholder="Confirm new PIN" maxlength="20" />
-                </div>
-                <div class="form-group">
-                    <button class="btn btn-primary" @onclick="HandleChangePin">
-                        Change PIN
-                    </button>
-                    <button class="btn btn-danger" @onclick="HandleDisableSecurity" style="margin-left: 0.5rem;">
-                        Disable Security
-                    </button>
+                    @if (ViewModel.IsDisableSecurityMode)
+                    {
+                        <button class="btn btn-success" @onclick="HandleDisableSecurity">
+                            Confirm Disable Security
+                        </button>
+                        <button class="btn btn-outline-secondary" @onclick="HandleCancelDisableSecurity" style="margin-left: 0.5rem;">
+                            Cancel
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-primary" @onclick="HandleChangePin">
+                            Change PIN
+                        </button>
+                        <button class="btn btn-outline-secondary" @onclick="HandleToggleDisableSecurity" style="margin-left: 0.5rem;">
+                            Disable Security
+                        </button>
+                    }
                 </div>
             }
             else
@@ -241,6 +256,19 @@
     {
         await ViewModel.SetupSecurityCommand.ExecuteAsync(null);
         StateHasChanged(); // Force UI update after security change
+    }
+
+    private void HandleToggleDisableSecurity()
+    {
+        ViewModel.ToggleDisableSecurityModeCommand.Execute(null);
+        StateHasChanged();
+    }
+
+    private void HandleCancelDisableSecurity()
+    {
+        ViewModel.ToggleDisableSecurityModeCommand.Execute(null);
+        ViewModel.CurrentPin = string.Empty;
+        StateHasChanged();
     }
 
     private async Task HandleDisableSecurity()
